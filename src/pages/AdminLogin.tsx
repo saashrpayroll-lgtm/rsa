@@ -71,7 +71,10 @@ const AdminLogin: React.FC = () => {
                 {error && (
                     <div className="mb-6 p-4 bg-red-950/50 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-200 text-sm">
                         <ShieldAlert size={20} className="shrink-0 text-red-500" />
-                        {error}
+                        <div className="flex flex-col">
+                            <span className="font-bold">Login Failed</span>
+                            <span className="text-xs opacity-75">{error}</span>
+                        </div>
                     </div>
                 )}
 
