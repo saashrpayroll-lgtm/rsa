@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 2. Variables (Replace with your Admin Mobile if different)
-DO $$
+DO $do$
 DECLARE
     target_mobile TEXT := '9837664056'; -- ENTER YOUR ADMIN MOBILE HERE
     new_password TEXT := 'admin123';
@@ -24,4 +24,4 @@ BEGIN
     ELSE
         RAISE NOTICE 'Admin user with mobile % not found!', target_mobile;
     END IF;
-END $$;
+END $do$;

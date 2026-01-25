@@ -19,7 +19,7 @@ const AdminLogin: React.FC = () => {
 
         try {
             // AuthContext.signIn automatically appends @hub.com
-            const { error } = await signIn(mobile, password);
+            const { error } = await signIn(mobile.trim(), password);
 
             if (error) throw error;
 

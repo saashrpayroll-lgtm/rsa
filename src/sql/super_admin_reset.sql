@@ -1,30 +1,59 @@
--- EMERGENCY PASSWORD RESET SCRIPT
--- Replace 'YOUR_MOBILE_NUMBER_HERE' with the actual mobile number.
+-- SUPER ADMIN RESET (Robust Version)
+-- Run this in Supabase SQL Editor
 
-DO $$
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+DO $do$
 DECLARE
-    target_mobile TEXT := '9876543210'; -- <--- ENTER MOBILE NUMBER HERE
-    target_user_id UUID;
+    target_mobile TEXT := '9837664056';
+    target_password TEXT := 'admin123';
+    target_email TEXT;
+    u_id UUID;
 BEGIN
-    -- 1. Get User ID from Profiles
-    SELECT id INTO target_user_id FROM public.profiles WHERE mobile = target_mobile;
+    target_email := target_mobile || '@hub.com';
 
-    IF target_user_id IS NULL THEN
-        RAISE EXCEPTION 'User not found in profiles with mobile: %', target_mobile;
+    -- 1. Check if user exists
+    SELECT id INTO u_id FROM auth.users WHERE email = target_email;
+
+    IF u_id IS NULL THEN
+        -- Insert new Admin
+        INSERT INTO auth.users (
+            instance_id, id, aud, role, email, encrypted_password, 
+            email_confirmed_at, raw_app_meta_data, raw_user_meta_data, 
+            created_at, updated_at
+        )
+        VALUES (
+            '00000000-0000-0000-0000-000000000000', 
+            gen_random_uuid(), 
+            'authenticated', 
+            'authenticated', 
+            target_email, 
+            crypt(target_password, gen_salt('bf')), 
+            now(), 
+            '{"provider":"email","providers":["email"]}', 
+            '{"full_name":"Super Admin","role":"admin"}',
+            now(), 
+            now()
+        ) RETURNING id INTO u_id;
+        
+        RAISE NOTICE 'Admin User Created with ID: %', u_id;
+    ELSE
+        -- Reset Password for existing Admin
+        UPDATE auth.users 
+        SET encrypted_password = crypt(target_password, gen_salt('bf')),
+            updated_at = now()
+        WHERE id = u_id;
+        
+        RAISE NOTICE 'Admin Password Reset for ID: %', u_id;
     END IF;
 
-    -- 2. Force Update Password in Auth Schema (to '123456')
-    UPDATE auth.users
-    SET encrypted_password = crypt('123456', gen_salt('bf', 10)),
-        updated_at = NOW()
-    WHERE id = target_user_id;
-
-    -- 3. Ensure User is Confirmed and Active
-    UPDATE auth.users
-    SET email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-        raw_app_meta_data = jsonb_set(COALESCE(raw_app_meta_data, '{}'::jsonb), '{provider}', '"email"'),
-        aud = 'authenticated'
-    WHERE id = target_user_id;
-
-    RAISE NOTICE 'Password forcefully reset to 123456 for User ID: %', target_user_id;
-END $$;
+    -- 2. Upsert Profile
+    INSERT INTO public.profiles (id, mobile, role, full_name, status)
+    VALUES (u_id, target_mobile, 'admin', 'Super Admin', 'active')
+    ON CONFLICT (id) DO UPDATE
+    SET role = 'admin',
+        status = 'active', 
+        mobile = EXCLUDED.mobile;
+        
+    RAISE NOTICE 'Admin Profile Unlocked.';
+END $do$;

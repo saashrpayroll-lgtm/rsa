@@ -2,7 +2,7 @@
 -- Sets password to '123456' and forces change on next login.
 -- Works for ANY mobile number (Rider, Tech, Admin).
 
-DO $$
+DO $do$
 DECLARE
     -- REPLACE THIS WITH THE TARGET MOBILE NUMBER
     target_mobile TEXT := '9876543210'; 
@@ -31,4 +31,4 @@ BEGIN
     WHERE id = target_user_id;
 
     RAISE NOTICE '✅ SUCCESS! Password for % reset to 123456. Force Change Enabled.', target_mobile;
-END $$;
+END $do$;

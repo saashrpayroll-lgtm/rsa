@@ -3,7 +3,7 @@
 
 -- 1. Function to check immunity
 CREATE OR REPLACE FUNCTION check_admin_immunity()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $func$
 BEGIN
     -- Check for DELETION
     IF (TG_OP = 'DELETE') THEN
@@ -18,17 +18,13 @@ BEGIN
         IF OLD.role = 'admin' AND NEW.status IN ('suspended', 'blocked', 'inactive') AND OLD.status = 'active' THEN
              RAISE EXCEPTION 'ADMIN IMMUNITY: Cannot suspend or block an Administrator account. This action is blocked by system security rules.';
         END IF;
-        -- Also prevent changing role FROM admin TO something else without explicit override (optional, but good for safety)
-        -- IF OLD.role = 'admin' AND NEW.role != 'admin' THEN
-        --      RAISE EXCEPTION 'ADMIN IMMUNITY: Cannot demote an Administrator. Create a new account instead.';
-        -- END IF;
         
         RETURN NEW;
     END IF;
     
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$func$ LANGUAGE plpgsql;
 
 -- 2. Drop existing triggers if any to avoid duplicates
 DROP TRIGGER IF EXISTS trigger_check_admin_immunity_profiles ON profiles;
