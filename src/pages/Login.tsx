@@ -129,8 +129,14 @@ const Login: React.FC = () => {
 
                     // Route based on Role
                     localStorage.setItem('portal_type', 'public');
-                    if (profile.role === 'admin') navigate('/admin');
-                    else if (profile.role === 'rider') navigate('/rider');
+
+                    // STRICT ISOLATION: Block Admin from Public Portal
+                    if (profile.role === 'admin') {
+                        await supabase.auth.signOut();
+                        throw new Error("⛔ SECURITY ALERT: Administrators must use the Secure Admin Panel.");
+                    }
+
+                    if (profile.role === 'rider') navigate('/rider');
                     else if (['hub_tech', 'rsa_tech'].includes(profile.role)) navigate('/tech');
                     else navigate('/'); // Fallback
                     return;

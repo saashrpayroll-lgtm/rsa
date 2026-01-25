@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { Lock, ShieldAlert, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -27,15 +28,20 @@ const AdminLogin: React.FC = () => {
             // PERSIST PORTAL IDENTITY
             localStorage.setItem('portal_type', 'admin');
 
-            // Strict Role Check via separate fetch to ensure we have latest role
-            // (Assuming useAuth updates profile, but for safety we check the returned hook state which might lag, 
-            // so actually best to rely on the Redirect logic or check user metadata if possible, 
-            // but for now we trust the auth flow, and the ProtectedRoute to screen them out if not admin.)
+            // STRICT ISOLATION: Validate Role Immediately
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
 
-            // However, we want to fail EARLY if they are not admin.
-            // Since signIn updates the session, the useAuth context will eventually react.
-            // But we can't easily sync check here without direct DB call or trusting RLS.
-            // We'll let the standard flow proceed, but Dashboard will start.
+                if (profile?.role !== 'admin') {
+                    await supabase.auth.signOut();
+                    throw new Error("⛔ ACCESS DENIED: This portal is restricted to Administrators only.");
+                }
+            }
 
             navigate('/admin');
 
