@@ -162,20 +162,21 @@ const Login: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
-                className="w-full max-w-md bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden relative z-10"
+                whileHover={{ y: -5, scale: 1.01 }}
+                className="w-full max-w-md bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden relative z-10 transition-shadow duration-300 hover:shadow-2xl hover:shadow-orange-500/10"
             >
-                <div className="p-10 pb-8 text-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-900/50">
+                <div className="p-8 pb-4 text-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-900/50">
                     <motion.div
                         initial={{ scale: 0.8 }}
                         animate={{ scale: 1 }}
-                        className="w-24 h-24 mx-auto bg-white/50 dark:bg-black/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-orange-500/10 border border-white/20"
+                        className="w-20 h-20 mx-auto bg-white/50 dark:bg-black/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mb-4 shadow-xl shadow-orange-500/10 border border-white/20"
                     >
-                        <img src="/triev_logo.png" alt="TriEv Logo" className="w-16 h-16 object-contain drop-shadow-md" />
+                        <img src="/triev_logo.png" alt="TriEv Logo" className="w-12 h-12 object-contain drop-shadow-md" />
                     </motion.div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2">
-                        <span className="text-orange-500">TriEv</span> {t('auth.login_title')}
+                    <h1 className="text-3xl font-extrabold tracking-tight mb-2">
+                        <span className="text-orange-500">TriEv</span> <span className="text-black dark:text-white">RSA</span>
                     </h1>
-                    <p className="text-xs font-bold text-gray-400 tracking-widest uppercase">#JoinTheEVTribe</p>
+                    <p className="text-xs font-bold text-blue-500 tracking-widest uppercase">#JoinTheEVTriEv</p>
                 </div>
 
                 <div className="p-10 pt-4">
