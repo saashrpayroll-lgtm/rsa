@@ -13,9 +13,14 @@ BEGIN
     target_email := target_mobile || '@hub.com';
 
     -- 1. NUKE IT (Delete existing user if any)
-    -- We do this to clear any bad password hashes or weird states
+    -- TEMPORARILY DISABLE IMMUNITY
+    ALTER TABLE public.profiles DISABLE TRIGGER trigger_check_admin_immunity_profiles;
+    
     DELETE FROM public.profiles WHERE mobile = target_mobile;
     DELETE FROM auth.users WHERE email = target_email;
+    
+    -- RE-ENABLE IMMUNITY
+    ALTER TABLE public.profiles ENABLE TRIGGER trigger_check_admin_immunity_profiles;
     
     RAISE NOTICE 'Old Admin Account Deleted (if it existed).';
 
@@ -39,11 +44,16 @@ BEGIN
         now()
     );
 
-    -- 3. SYNC PROFILE
+    -- 3. SYNC PROFILE (Use Upsert to handle Trigger-created rows)
     INSERT INTO public.profiles (id, mobile, role, full_name, status)
     SELECT id, target_mobile, 'admin', 'Super Admin', 'active'
     FROM auth.users 
-    WHERE email = target_email;
+    WHERE email = target_email
+    ON CONFLICT (id) DO UPDATE
+    SET role = 'admin',
+        status = 'active',
+        full_name = 'Super Admin',
+        mobile = EXCLUDED.mobile;
 
     RAISE NOTICE '✅ NEW ADMIN ACCOUNT CREATED!';
     RAISE NOTICE 'Login: %', target_mobile;
