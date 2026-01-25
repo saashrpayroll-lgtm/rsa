@@ -18,6 +18,7 @@ const AdminLogin: React.FC = () => {
         setLoading(true);
 
         try {
+            console.log("Admin Login Attempt:", mobile.trim()); // Debug for Vercel logs
             // AuthContext.signIn automatically appends @hub.com
             const { error } = await signIn(mobile.trim(), password);
 
