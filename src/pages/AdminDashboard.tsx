@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UserProfile, Ticket } from '../types';
 import { cn } from '../lib/utils';
-import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, FileText } from 'lucide-react';
+import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, FileText, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import TechnicianPerformance from '../components/admin/TechnicianPerformance';
@@ -429,12 +429,12 @@ const AdminDashboard: React.FC = () => {
                             </div>
                             <p className="text-[10px] text-gray-500 dark:text-gray-400">Manage Hubs</p>
                         </div>
-                        <div onClick={() => navigate('/admin/users')} className="bg-gradient-to-br from-green-500/10 to-teal-500/10 border border-green-200 dark:border-green-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
+                        <div onClick={() => navigate('/admin/activity')} className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-200 dark:border-orange-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
                             <div className="flex items-center gap-2 mb-1">
-                                <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400"><Users size={16} /></div>
-                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Users</h3>
+                                <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400"><TrendingUp size={16} /></div>
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Activity</h3>
                             </div>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">{users.length} Registered</p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Live Monitoring</p>
                         </div>
                         <div onClick={() => navigate('/admin/riders')} className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-200 dark:border-purple-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
                             <div className="flex items-center gap-2 mb-1">
