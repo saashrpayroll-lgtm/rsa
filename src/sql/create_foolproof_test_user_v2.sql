@@ -1,5 +1,5 @@
--- FOOLPROOF USER v2 (COST 10)
--- Retrying SQL creation with Cost 10, which matches Supabase Default.
+-- FOOLPROOF USER v3 (TRIGGER SAFE)
+-- Retrying SQL creation with Cost 10, handling Trigger Conflicts.
 
 DO $$
 DECLARE
@@ -9,7 +9,7 @@ DECLARE
     v_instance_id UUID;
     v_hash TEXT;
 BEGIN
-    -- 1. CLEANUP
+    -- 1. CLEANUP (Delete old attempts)
     DELETE FROM public.profiles WHERE mobile = v_mobile;
     DELETE FROM auth.users WHERE email = v_email;
 
@@ -18,10 +18,9 @@ BEGIN
     IF v_instance_id IS NULL THEN v_instance_id := '00000000-0000-0000-0000-000000000000'; END IF;
 
     -- 3. GENERATE HASH (Cost 10)
-    -- This mimics GoTrue default
     v_hash := crypt(v_pass, gen_salt('bf', 10));
 
-    -- 4. INSERT
+    -- 4. INSERT AUTH (Trigger will auto-create Profile here!)
     INSERT INTO auth.users (
         instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
         raw_app_meta_data, raw_user_meta_data, created_at, updated_at
@@ -33,10 +32,16 @@ BEGIN
         NOW(), NOW()
     );
 
-    -- 5. PROFILE
-    INSERT INTO public.profiles (id, mobile, role, full_name, status)
-    SELECT id, v_mobile, 'rsa_tech', 'TEST USER 10', 'active'
-    FROM auth.users WHERE email = v_email;
+    -- 5. UPDATE PROFILE (In case Trigger created it, we just enforce values)
+    -- We select by email because we don't know the generated ID easily unless we capture it.
+    -- Better: Insert/Update based on the Email lookup? 
+    -- Actually, since we just inserted, we can find it.
+    
+    UPDATE public.profiles
+    SET role = 'rsa_tech',
+        full_name = 'TEST USER 10',
+        status = 'active'
+    WHERE id = (SELECT id FROM auth.users WHERE email = v_email);
 
-    RAISE NOTICE '✅ Created User (Cost 10): %', v_mobile;
+    RAISE NOTICE '✅ Created User (Triggers Handled): %', v_mobile;
 END $$;
