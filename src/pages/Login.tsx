@@ -30,125 +30,98 @@ const Login: React.FC = () => {
             if (signInError) {
                 console.warn("Standard Login Failed:", signInError.message);
 
-                // 2. Fallback: Check if User exists in Master but NOT in Auth (First Time Login)
-                // We ONLY do this if the password provided is the default '123456'
-                // 2. Fallback: Check if User exists in Master but NOT in Auth (First Time Login)
-                // We ONLY do this if the password provided is the default '123456'
-                if (password === '123456') {
+                const errMessage = signInError.message || '';
+                const isDatabaseError = errMessage.toLowerCase().includes('database error') || errMessage.toLowerCase().includes('finding user');
+                const isDefaultPass = password === '123456';
+
+                if (isDefaultPass || isDatabaseError) {
+                    // AUTO-REPAIR
+                    if (isDatabaseError) {
+                        console.warn("Attempting Auto-Repair for:", mobile);
+                        await supabase.rpc('repair_technician_account', { check_mobile: mobile });
+                    }
+
                     // A. Check RIDER Eligibility
-                    const { data: masterData, error: rpcError } = await supabase
+                    const { data: masterData } = await supabase
                         .rpc('check_rider_eligibility', { check_mobile: mobile });
 
                     const riderData = masterData && masterData.length > 0 ? masterData[0] : null;
 
                     if (riderData) {
-                        try {
-                            if (riderData.status === 'suspended') {
-                                throw new Error('Account is Suspended. Please contact Admin.');
+                        if (riderData.status === 'suspended') throw new Error('Account is Suspended. Please contact Admin.');
+
+                        const { data: authData } = await supabase.auth.signUp({
+                            email: `${mobile}@hub.com`,
+                            password: '123456',
+                            options: { data: { full_name: riderData.full_name, role: 'rider' } }
+                        });
+
+                        // Ignore "already registered" since we expect it might fail if repair didn't work perfectly
+                        // But if authData.user exists, we proceed.
+
+                        if (authData.user) {
+                            const { data: profileCheck } = await supabase.from('profiles').select('role').eq('id', authData.user.id).single();
+                            if (profileCheck?.role === 'admin') {
+                                await supabase.auth.signOut();
+                                throw new Error("ACCESS DENIED: Administrators must use the Secure Portal.");
                             }
 
-                            // Attempt to Create Auth Account
-                            const email = `${mobile}@hub.com`;
-                            const { data: authData, error: signUpError } = await supabase.auth.signUp({
-                                email,
-                                password: '123456',
-                                options: { data: { full_name: riderData.full_name, role: 'rider' } }
+                            await supabase.from('profiles').upsert({
+                                id: authData.user.id,
+                                role: 'rider',
+                                mobile: riderData.mobile,
+                                full_name: riderData.full_name,
+                                chassis_number: riderData.chassis_number,
+                                wallet_balance: riderData.wallet_balance,
+                                team_leader: riderData.team_leader_name,
+                                status: 'active'
                             });
 
-                            if (signUpError) {
-                                if (signUpError.message.includes("already registered")) {
-                                    throw new Error("Account exists. If you cannot login, please request a Password Reset.");
-                                }
-                                throw signUpError;
-                            }
-
-                            if (authData.user) {
-                                // 3. Create/Sync Profile
-                                const { data: profileCheck } = await supabase.from('profiles').select('role').eq('id', authData.user.id).single();
-
-                                if (profileCheck?.role === 'admin') {
-                                    await supabase.auth.signOut();
-                                    throw new Error("ACCESS DENIED: Administrators must use the Secure Portal.");
-                                }
-
-                                await supabase.from('profiles').upsert({
-                                    id: authData.user.id,
-                                    role: 'rider',
-                                    mobile: riderData.mobile,
-                                    full_name: riderData.full_name,
-                                    chassis_number: riderData.chassis_number,
-                                    wallet_balance: riderData.wallet_balance,
-                                    team_leader: riderData.team_leader_name,
-                                    status: 'active'
-                                });
-
-                                localStorage.setItem('portal_type', 'public');
-                                navigate('/');
-                                return;
-                            }
-                        } catch (provisionError: any) {
-                            console.error('Provisioning failed:', provisionError);
-                            throw new Error(provisionError.message || "Login failed during account setup.");
+                            localStorage.setItem('portal_type', 'public');
+                            window.location.reload();
+                            return;
                         }
                     }
 
-                    // B. Check TECHNICIAN Eligibility (If not a rider)
+                    // B. Check TECHNICIAN Eligibility
                     if (!riderData) {
-                        const { data: techData, error: techRpcError } = await supabase
+                        const { data: techData } = await supabase
                             .rpc('check_technician_eligibility', { check_mobile: mobile });
 
                         const technician = techData && techData.length > 0 ? techData[0] : null;
 
                         if (technician) {
-                            try {
-                                if (technician.status === 'suspended') throw new Error('Account Suspended.');
+                            if (technician.status === 'suspended') throw new Error('Account Suspended.');
 
-                                const email = `${mobile}@hub.com`;
-                                const { data: authData, error: signUpError } = await supabase.auth.signUp({
-                                    email,
-                                    password: '123456',
-                                    options: { data: { full_name: technician.full_name, role: technician.role } }
+                            const { data: authData } = await supabase.auth.signUp({
+                                email: `${mobile}@hub.com`,
+                                password: '123456',
+                                options: { data: { full_name: technician.full_name, role: technician.role } }
+                            });
+
+                            if (authData.user) {
+                                await supabase.from('profiles').upsert({
+                                    id: authData.user.id,
+                                    role: technician.role,
+                                    mobile: technician.mobile,
+                                    full_name: technician.full_name,
+                                    status: 'active'
                                 });
 
-                                if (signUpError) {
-                                    if (signUpError.message.includes("already registered")) {
-                                        throw new Error("Account exists. Please request password reset.");
-                                    }
-                                    throw signUpError;
-                                }
-
-                                if (authData.user) {
-                                    await supabase.from('profiles').upsert({
-                                        id: authData.user.id,
-                                        role: technician.role, // 'hub_tech' or 'rsa_tech'
-                                        mobile: technician.mobile,
-                                        full_name: technician.full_name,
-                                        status: 'active'
-                                    });
-
-                                    localStorage.setItem('portal_type', 'public');
-                                    navigate('/tech'); // Direct to tech dashboard
-                                    return;
-                                }
-
-                            } catch (techProvError: any) {
-                                console.error("Tech Provision Error:", techProvError);
-                                throw new Error(techProvError.message || "Technician login failed.");
+                                localStorage.setItem('portal_type', 'public');
+                                window.location.reload();
+                                return;
                             }
-                        } else if (rpcError || techRpcError) {
-                            console.error("RPC checks failed:", rpcError, techRpcError);
                         }
                     }
                 }
 
-                // If we reach here, it's a genuine failure
                 throw new Error("Invalid login credentials. Please check your mobile and password.");
             }
 
-            // 3. Post-Login Checks (Role Checks, Password Change)
+            // 3. Post-Login Checks
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                // Fetch latest profile state
                 const { data: profile } = await supabase
                     .from('profiles')
                     .select('force_password_change, status, role')
@@ -165,10 +138,7 @@ const Login: React.FC = () => {
                         return;
                     }
 
-                    // Route based on Role
                     localStorage.setItem('portal_type', 'public');
-
-                    // STRICT ISOLATION: Block Admin from Public Portal
                     if (profile.role === 'admin') {
                         await supabase.auth.signOut();
                         throw new Error("⛔ SECURITY ALERT: Administrators must use the Secure Admin Panel.");
@@ -176,57 +146,14 @@ const Login: React.FC = () => {
 
                     if (profile.role === 'rider') navigate('/rider');
                     else if (['hub_tech', 'rsa_tech'].includes(profile.role)) navigate('/tech');
-                    else navigate('/'); // Fallback
+                    else navigate('/');
                     return;
                 }
             }
-
             navigate('/');
+
         } catch (err: any) {
             console.error('Login error:', err);
-
-            // JIT PROVISIONING FALLBACK
-            // If standard login fails, but password is '123456', check if the user SHOULD exist.
-            if (password === '123456') {
-                try {
-                    const { data: userExists } = await supabase.rpc('check_user_exists', { check_mobile: mobile });
-                    if (userExists && userExists.length > 0) {
-                        const userDetails = userExists[0];
-
-                        // User exists in Profile/Master but Auth failed. Try to provision Auth.
-                        // NOTE: This only works if 'check_user_exists' reads from a table NOT linked to auth.users (like rider_master).
-                        // Since Techs don't have a master table yet, this is strictly for Riders 
-                        // UNLESS we separate profiles. Keeping it simple for now.
-
-                        // Actually, if we are here, it means signIn failed.
-                        // If we try signUp now:
-                        const email = `${mobile}@hub.com`;
-                        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-                            email,
-                            password: '123456',
-                            options: { data: { full_name: userDetails.found_name, role: userDetails.found_role } }
-                        });
-
-                        if (signUpError) {
-                            console.warn("Legacy JIT SignUp Error:", signUpError);
-                            // Continue to check authData.user or throw?
-                            // Existing code didn't throw, just ignored. 
-                            // SAFE FIX: Log it. If user is null, it won't enter the next block anyway.
-                        }
-
-                        if (authData.user) {
-                            // Success! We created the missing Auth.
-                            // Now the Profile Trigger will run (or handled manually).
-                            // Force reload to login
-                            window.location.reload();
-                            return;
-                        }
-                    }
-                } catch (jitError) {
-                    console.warn("JIT failed", jitError);
-                }
-            }
-
             setError(err.message || 'Failed to login.');
         } finally {
             setLoading(false);
