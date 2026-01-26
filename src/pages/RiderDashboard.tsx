@@ -90,6 +90,7 @@ const RiderDashboard: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [ticketCategory, setTicketCategory] = useState(TICKET_CATEGORIES[0]);
     const [description, setDescription] = useState('');
+    const [alternateMobile, setAlternateMobile] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [feedback, setFeedback] = useState('');
 
@@ -346,6 +347,7 @@ const RiderDashboard: React.FC = () => {
                 type: allowedAction,
                 category: ticketCategory,
                 description,
+                alternate_mobile: alternateMobile || null,
                 location: `POINT(${location.lng} ${location.lat})`,
                 ai_analysis: aiAnalysis,
                 images: imageUrls,
@@ -359,6 +361,7 @@ const RiderDashboard: React.FC = () => {
             setFeedback('Ticket created successfully! Help is on the way.');
             setShowForm(false);
             setDescription('');
+            setAlternateMobile('');
             setImages([]);
             setVoiceNotes([]);
         } catch (error: any) {
@@ -714,6 +717,23 @@ const RiderDashboard: React.FC = () => {
                                             <span className="font-bold text-purple-400">{t('rider.ai_tip')}:</span> {aiSuggestion}
                                         </p>
                                     </div>
+                                </div>
+
+                                {/* Alternate Mobile Field (Optional) */}
+                                <div>
+                                    <label className="text-sm text-gray-500 dark:text-gray-400 mb-2 block font-medium">
+                                        Alternate Mobile Number <span className="text-gray-400 text-xs">(Optional)</span>
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={alternateMobile}
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            setAlternateMobile(val);
+                                        }}
+                                        placeholder="Enter alternate number (if any)..."
+                                        className="w-full bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl p-4 border border-gray-200 dark:border-gray-700 outline-none focus:border-cyan-500 transition-colors"
+                                    />
                                 </div>
 
                                 {/* Media Section */}

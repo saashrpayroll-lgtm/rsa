@@ -347,6 +347,19 @@ const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Alternate Mobile Display */}
+                                    {ticket.alternate_mobile && (
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-2 pl-1 border-l-2 border-orange-500/30">
+                                            <p className="text-gray-600 dark:text-gray-400 text-xs font-mono flex items-center gap-1">
+                                                <span className="text-[10px] font-bold text-orange-400 uppercase">Alt:</span>
+                                                {ticket.alternate_mobile}
+                                            </p>
+                                            <a href={`tel:${ticket.alternate_mobile}`} className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-xs flex items-center gap-1 transition-colors border border-orange-500/10 w-fit">
+                                                <Phone size={10} /> Call Alt
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

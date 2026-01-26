@@ -39,6 +39,7 @@ export interface Ticket {
     ticket_id?: string; // Human readable ID
     rider_id: string;
     technician_id?: string;
+    alternate_mobile?: string; // Optional alternate number
     location_address?: string;
     cancel_reason?: string;
     notes?: string;
