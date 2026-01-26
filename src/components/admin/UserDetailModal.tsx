@@ -155,7 +155,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose,
                                 <input
                                     type="text"
                                     value={mobile}
-                                    onChange={(e) => setMobile(e.target.value)}
+                                    onChange={(e) => setMobile(e.target.value.trim())}
                                     className="pl-9 w-full bg-gray-700 border border-gray-600 rounded-lg py-2 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                                     placeholder="Enter mobile number"
                                 />
