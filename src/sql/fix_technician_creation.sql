@@ -95,6 +95,7 @@ CREATE OR REPLACE FUNCTION repair_technician_account(check_mobile TEXT)
 RETURNS BOOLEAN AS $$
 DECLARE
     v_tech_exists BOOLEAN;
+    v_user_id UUID;
 BEGIN
     -- 1. Verify existence in Master
     SELECT EXISTS (SELECT 1 FROM public.technician_master WHERE mobile = check_mobile) INTO v_tech_exists;
