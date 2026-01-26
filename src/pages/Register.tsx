@@ -38,10 +38,33 @@ const Register: React.FC = () => {
 
             if (error) throw error;
 
-            if (data.user && !data.session) {
-                setSuccess('Registration successful! IMPORTANT: Please disable "Confirm Email" in Supabase Auth settings to login without verification.');
-                // Do not redirect automatically if verification is stuck
-            } else {
+            if (data.user) {
+                // 1. Create Profile
+                const { error: profileError } = await supabase.from('profiles').upsert({
+                    id: data.user.id,
+                    mobile,
+                    full_name: fullName,
+                    role: role as any,
+                    status: 'active'
+                });
+
+                if (profileError) {
+                    console.error("Profile creation failed:", profileError);
+                    // Don't throw, just warn
+                }
+
+                // 2. If Technician, Sync to Master
+                if (['hub_tech', 'rsa_tech'].includes(role)) {
+                    const { error: masterError } = await supabase.from('technician_master').upsert({
+                        mobile,
+                        full_name: fullName,
+                        role: role,
+                        status: 'active'
+                    }, { onConflict: 'mobile' });
+
+                    if (masterError) console.error("Master sync failed:", masterError);
+                }
+
                 setSuccess('User registered successfully! Redirecting to login...');
                 setTimeout(() => navigate('/login'), 2000);
             }
