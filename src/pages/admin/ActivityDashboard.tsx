@@ -11,6 +11,7 @@ const ActivityDashboard = () => {
     const navigate = useNavigate();
     const { t } = useLanguage();
     const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('day');
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [activityData, setActivityData] = useState<any[]>([]);
 
     // Mock Data Fallback
@@ -37,12 +38,19 @@ const ActivityDashboard = () => {
         fetchChartData();
         const interval = setInterval(fetchChartData, 60000); // Update every minute
         return () => clearInterval(interval);
-    }, []);
+    }, [refreshTrigger]); // Fetch on refresh trigger too
+
+    const getStartTime = () => {
+        const now = new Date();
+        if (timeRange === 'week') return new Date(now.setDate(now.getDate() - 7)).toISOString();
+        if (timeRange === 'month') return new Date(now.setDate(now.getDate() - 30)).toISOString();
+        return new Date(now.setDate(now.getDate() - 1)).toISOString(); // Default 'day'
+    };
 
     const handleDownloadReport = async () => {
         try {
             const { data, error } = await supabase.rpc('get_technician_stats', {
-                time_range_start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+                time_range_start: getStartTime()
             });
 
             if (error) throw error;
@@ -115,7 +123,7 @@ const ActivityDashboard = () => {
 
                     <button
                         className="p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm active:scale-95"
-                        onClick={() => window.location.reload()}
+                        onClick={() => setRefreshTrigger(prev => prev + 1)}
                         title="Refresh Data"
                     >
                         <RefreshCw size={18} />
@@ -135,7 +143,7 @@ const ActivityDashboard = () => {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Pass real data or fallback to mock */}
                     <ActivityChart data={activityData.length > 0 ? activityData : mockChartData} />
-                    <TechnicianPerformanceTable />
+                    <TechnicianPerformanceTable timeRange={timeRange} refreshTrigger={refreshTrigger} />
                 </div>
 
                 {/* Right Column: AI Insights */}

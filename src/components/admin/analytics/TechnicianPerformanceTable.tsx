@@ -2,21 +2,30 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { Wrench } from 'lucide-react';
 
-const TechnicianPerformanceTable = () => {
+interface TechnicianPerformanceTableProps {
+    timeRange: 'day' | 'week' | 'month';
+    refreshTrigger: number;
+}
+
+const TechnicianPerformanceTable: React.FC<TechnicianPerformanceTableProps> = ({ timeRange, refreshTrigger }) => {
     const [techs, setTechs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const getStartTime = () => {
+        const now = new Date();
+        if (timeRange === 'week') return new Date(now.setDate(now.getDate() - 7)).toISOString();
+        if (timeRange === 'month') return new Date(now.setDate(now.getDate() - 30)).toISOString();
+        return new Date(now.setDate(now.getDate() - 1)).toISOString(); // Default 'day'
+    };
+
     useEffect(() => {
         fetchStats();
-        // Refresh every 30s
-        const interval = setInterval(fetchStats, 30000);
-        return () => clearInterval(interval);
-    }, []);
+    }, [timeRange, refreshTrigger]);
 
     const fetchStats = async () => {
-        // Fetch from the RPC we created
+        setLoading(true);
         const { data, error } = await supabase.rpc('get_technician_stats', {
-            time_range_start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // Last 24h
+            time_range_start: getStartTime()
         });
 
         if (!error && data) {
