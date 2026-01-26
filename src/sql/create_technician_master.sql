@@ -16,6 +16,8 @@ ALTER TABLE public.technician_master ENABLE ROW LEVEL SECURITY;
 
 -- Policies
 -- Admins can do everything
+DROP POLICY IF EXISTS "Admins can manage technician_master" ON technician_master;
+
 CREATE POLICY "Admins can manage technician_master" ON technician_master
     FOR ALL
     USING (
