@@ -108,7 +108,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 },
                 (payload) => {
                     const newNotif = payload.new as Notification;
-                    setNotifications(prev => [newNotif, ...prev]);
+                    // Prevent Duplicates
+                    setNotifications(prev => {
+                        if (prev.some(n => n.id === newNotif.id)) return prev;
+                        return [newNotif, ...prev];
+                    });
 
                     // Optional: Play sound or show toast here
                 }

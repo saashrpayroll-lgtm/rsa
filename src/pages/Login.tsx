@@ -170,7 +170,8 @@ const Login: React.FC = () => {
                                     role: technician.role,
                                     mobile: technician.mobile,
                                     full_name: technician.full_name,
-                                    status: 'active'
+                                    status: 'active',
+                                    force_password_change: true
                                 });
 
                                 localStorage.setItem('portal_type', 'public');
