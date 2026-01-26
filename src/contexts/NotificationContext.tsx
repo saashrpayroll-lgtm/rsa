@@ -86,6 +86,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         await deleteNotification(allIds);
     };
 
+    const channelRef = React.useRef<any>(null);
+
     // Initial Fetch & Realtime Subscription
     useEffect(() => {
         if (!user) {
@@ -95,32 +97,37 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         fetchNotifications();
 
-        // Subscribe to NEW notifications for this user
-        const channel = supabase
-            .channel('public:notifications:' + user.id)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${user.id}`
-                },
-                (payload) => {
-                    const newNotif = payload.new as Notification;
-                    // Prevent Duplicates
-                    setNotifications(prev => {
-                        if (prev.some(n => n.id === newNotif.id)) return prev;
-                        return [newNotif, ...prev];
-                    });
+        // STRICT MODE SAFEGUARD: Only subscribe if channel doesn't exist
+        if (!channelRef.current) {
+            const channel = supabase
+                .channel('public:notifications:' + user.id)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'notifications',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    (payload) => {
+                        const newNotif = payload.new as Notification;
+                        // Prevent Duplicates (Store Level)
+                        setNotifications(prev => {
+                            if (prev.some(n => n.id === newNotif.id)) return prev;
+                            return [newNotif, ...prev];
+                        });
+                    }
+                )
+                .subscribe();
 
-                    // Optional: Play sound or show toast here
-                }
-            )
-            .subscribe();
+            channelRef.current = channel;
+        }
 
         return () => {
-            supabase.removeChannel(channel);
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+                channelRef.current = null;
+            }
         };
     }, [user]);
 
