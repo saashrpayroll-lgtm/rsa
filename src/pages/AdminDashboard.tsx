@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UserProfile, Ticket } from '../types';
 import { cn } from '../lib/utils';
-import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, TrendingUp, FileText } from 'lucide-react';
+import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import TechnicianPerformance from '../components/admin/TechnicianPerformance';
@@ -316,76 +316,17 @@ const AdminDashboard: React.FC = () => {
                     />
                 </div>
 
-                {/* 2. Forecast & SLA (Middle Layer) */}
-                <div className="lg:col-span-2">
-                    <AIForecastChart data={forecastData} />
-                </div>
-                <div className="lg:col-span-1">
-                    <SLAMonitor />
-                </div>
-                <div className="lg:col-span-1 flex flex-col gap-3">
-                    {/* Mini Action Cards */}
-                    <div onClick={() => navigate('/admin/hubs')} className="flex-1 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-200 dark:border-cyan-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg text-cyan-600 dark:text-cyan-400"><Radio size={16} /></div>
-                            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Hubs</h3>
-                        </div>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Manage 12 Active Hubs</p>
-                    </div>
-                    <div onClick={() => navigate('/admin/users')} className="flex-1 bg-gradient-to-br from-green-500/10 to-teal-500/10 border border-green-200 dark:border-green-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400"><Users size={16} /></div>
-                            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">{t('dashboard.registered_users')}</h3>
-                        </div>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{users.length} Registered Users</p>
-                    </div>
-                    <div
-                        onClick={() => navigate('/admin/activity')}
-                        className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all cursor-pointer group"
-                    >
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-                                <TrendingUp size={20} />
-                            </div>
-                            <span className="flex h-2.5 w-2.5 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500"></span>
-                            </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-0.5">Activity & Logs</h3>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Technician Analytics</p>
-                    </div>
+                {/* 2. Main Content Grid - Balanced 3 Columns */}
 
-                    <div onClick={() => navigate('/admin/reports')} className="flex-1 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400"><FileText size={16} /></div>
-                            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Reports</h3>
-                        </div>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Download Excel / PDF</p>
-                    </div>
-
-                    {/* Existing Create User Card */}
-                    <div onClick={() => navigate('/admin/riders')} className="flex-1 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-200 dark:border-purple-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400"><UserCheck size={16} /></div>
-                            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Riders</h3>
-                        </div>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{totalRiders} Registered Riders</p>
-                    </div>
-                </div>
-
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Col: Dispatch Control */}
-                <div className="lg:col-span-1 space-y-6">
+                {/* Left Column: Operations (Dispatch + SLA) */}
+                <div className="lg:col-span-1 space-y-4">
                     <div className={cn("bg-white dark:bg-gray-800/30 backdrop-blur-md rounded-3xl border p-6 transition-all duration-300 shadow-sm", isRealtime ? "border-green-500/50 shadow-green-500/10" : "border-gray-200 dark:border-gray-700/50")}>
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <Shield size={18} className="text-cyan-600 dark:text-cyan-400" />
                                 Dispatch Settings
                             </h3>
-                            {isRealtime && <span className="text-[10px] bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 px-2 py-1 rounded-full animate-pulse font-bold">LIVE UPDATED</span>}
+                            {isRealtime && <span className="text-[10px] bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 px-2 py-1 rounded-full animate-pulse font-bold">LIVE</span>}
                         </div>
 
                         <div className="space-y-4">
@@ -442,18 +383,58 @@ const AdminDashboard: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    <SLAMonitor />
                 </div>
 
-                {/* Right Col: Manage & Analytics */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* User Management */}
+                {/* Middle Column: Analytics & Forecast (Span 2) */}
+                <div className="lg:col-span-2 space-y-4">
+                    <AIForecastChart data={forecastData} />
+
+                    {/* Action Cards Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div onClick={() => navigate('/admin/hubs')} className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-200 dark:border-cyan-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg text-cyan-600 dark:text-cyan-400"><Radio size={16} /></div>
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Hubs</h3>
+                            </div>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Manage Hubs</p>
+                        </div>
+                        <div onClick={() => navigate('/admin/users')} className="bg-gradient-to-br from-green-500/10 to-teal-500/10 border border-green-200 dark:border-green-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400"><Users size={16} /></div>
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Users</h3>
+                            </div>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">{users.length} Registered</p>
+                        </div>
+                        <div onClick={() => navigate('/admin/riders')} className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-200 dark:border-purple-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400"><UserCheck size={16} /></div>
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Riders</h3>
+                            </div>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">{totalRiders} Registered Riders</p>
+                        </div>
+                        <div onClick={() => navigate('/admin/reports')} className="bg-gradient-to-br from-indigo-500/10 to-blue-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400"><FileText size={16} /></div>
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Reports</h3>
+                            </div>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Downloads</p>
+                        </div>
+                    </div>
+
+                    <TechnicianPerformance users={users} tickets={tickets} />
+                </div>
+
+                {/* Right Column: Insights & Users (Span 1) */}
+                <div className="lg:col-span-1 space-y-4">
                     <div className="bg-white dark:bg-gray-800/30 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-gray-700/50 p-6 shadow-sm">
                         <div className="flex justify-between items-center mb-6 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/admin/users')}>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <Users size={18} className="text-gray-500 dark:text-gray-400" />
                                 User Database
                             </h3>
-                            <span className="text-xs text-blue-500 hover:underline">View All Users ({users.length})</span>
+                            <span className="text-xs text-blue-500 hover:underline">View All</span>
                         </div>
                         <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                             {users.slice(0, 5).map(user => (
@@ -462,22 +443,18 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* AI & Performance Section */}
-                    <div className="grid grid-cols-1 gap-6">
-                        <TechnicianPerformance users={users} tickets={tickets} />
-
-                        <div className="bg-white dark:bg-gray-800/30 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                            <AIInsightsPanel metrics={{
-                                totalTickets: tickets.length,
-                                activeTickets: activeTickets,
-                                avgResponseTime: "~2.5m",
-                                satisfaction: "4.8/5",
-                                pending: upcomingTickets,
-                                techCount: totalTechs
-                            }} />
-                        </div>
+                    <div className="bg-white dark:bg-gray-800/30 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                        <AIInsightsPanel metrics={{
+                            totalTickets: tickets.length,
+                            activeTickets: activeTickets,
+                            avgResponseTime: "~2.5m",
+                            satisfaction: "4.8/5",
+                            pending: upcomingTickets,
+                            techCount: totalTechs
+                        }} />
                     </div>
                 </div>
+
             </div>
         </div>
     );

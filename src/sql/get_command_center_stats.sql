@@ -83,22 +83,22 @@ BEGIN
       date_trunc('hour', created_at) AS hour_start,
       count(*) AS count
     FROM tickets
-    WHERE created_at >= now() - interval '12 hours'
+    WHERE created_at >= now() - interval '24 hours'
     GROUP BY 1
   )
   SELECT 
     to_char(h.hour_start, 'HH24:MI') AS time,
-    -- Actual: defined for past, null for future
+    -- Actual: defined for past (<= now), null for future
     CASE 
       WHEN h.hour_start <= now() THEN COALESCE(a.count, 0)
-      ELSE NULL
+      ELSE NULL 
     END AS actual,
-    -- Predicted: defined for all (Mocking logic based on time of day + random noise)
+    -- Predicted: defined for all
     ABS(
       (CASE 
-        WHEN EXTRACT(HOUR FROM h.hour_start) BETWEEN 8 AND 10 THEN 20  -- Morning Peak
-        WHEN EXTRACT(HOUR FROM h.hour_start) BETWEEN 17 AND 19 THEN 25 -- Evening Peak
-        WHEN EXTRACT(HOUR FROM h.hour_start) BETWEEN 1 AND 5 THEN 2   -- Night Low
+        WHEN EXTRACT(HOUR FROM h.hour_start) BETWEEN 8 AND 10 THEN 20  -- Morning
+        WHEN EXTRACT(HOUR FROM h.hour_start) BETWEEN 17 AND 19 THEN 25 -- Evening
+        WHEN EXTRACT(HOUR FROM h.hour_start) BETWEEN 1 AND 5 THEN 2    -- Night
         ELSE 10
       END) 
       + (floor(random() * 5) - 2) -- Noise
