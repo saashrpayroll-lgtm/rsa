@@ -99,6 +99,19 @@ export interface AdminInsight {
 export const generateAdminInsights = async (
     metrics: any
 ): Promise<AdminInsight[]> => {
+    // 1. Handle Empty System State
+    if (!metrics || metrics.totalTickets === 0) {
+        return [{
+            type: 'PRAISE',
+            message: 'System is online and ready. No tickets pending.',
+            target: 'System Status'
+        }, {
+            type: 'RECOMMENDATION',
+            message: 'Complete technician profiles to prepare for incoming requests.',
+            target: 'Onboarding'
+        }];
+    }
+
     try {
         const prompt = `
       Analyze the following EV fleet maintenance metrics and provide 3-5 key actionable insights for the Admin.
@@ -130,22 +143,17 @@ export const generateAdminInsights = async (
     } catch (error: any) {
         console.error('Admin Insights AI Failed:', error);
 
-        // Return clear simulation data so the UI doesn't break
+        // Return generic fallback (Non-hallucinating)
         return [
             {
                 type: 'PRAISE',
-                message: 'System uptime is 99.9% this week. Great job!',
+                message: 'System is operational. Monitoring active.',
                 target: 'Infrastructure'
             },
             {
-                type: 'WARNING',
-                message: 'High ticket volume detected in North Hub.',
-                target: 'Hub Operations'
-            },
-            {
                 type: 'RECOMMENDATION',
-                message: 'Consider assigning more techs to "Battery" issues.',
-                target: 'Resource Allocation'
+                message: 'Check back later for detailed AI analysis.',
+                target: 'AI Agent'
             }
         ];
     }
