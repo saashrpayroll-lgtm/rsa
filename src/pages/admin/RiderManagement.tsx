@@ -35,39 +35,6 @@ const RiderManagement: React.FC = () => {
     // Refs for Auto Sync
     const autoSyncInterval = useRef<any>(null);
 
-    useEffect(() => {
-        fetchRiders();
-
-        // Load settings
-        const savedSheetId = localStorage.getItem('rider_master_sheet_id');
-        if (savedSheetId) setSheetId(savedSheetId);
-
-        // Realtime Subscription
-        const subscription = supabase
-            .channel('rider_master_realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_master' }, () => {
-                fetchRiders(false); // Silent refresh
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(subscription);
-            if (autoSyncInterval.current) clearInterval(autoSyncInterval.current);
-        };
-    }, []);
-
-    // Effect for Auto Sync Toggle
-    useEffect(() => {
-        if (autoSync) {
-            handleSync(true); // Initial sync
-            autoSyncInterval.current = setInterval(() => {
-                handleSync(true);
-            }, 10000); // 10 sec
-        } else {
-            if (autoSyncInterval.current) clearInterval(autoSyncInterval.current);
-        }
-    }, [autoSync]);
-
     const fetchRiders = async (showLoading = true) => {
         if (showLoading) setLoading(true);
         const { data, error } = await supabase
@@ -80,7 +47,7 @@ const RiderManagement: React.FC = () => {
         if (showLoading) setLoading(false);
     };
 
-    const handleSync = async (isAuto = false) => {
+    const handleSync = React.useCallback(async (isAuto = false) => {
         if (!sheetId) {
             if (!isAuto) alert('Please enter a valid Google Sheet ID');
             return;
@@ -131,6 +98,9 @@ const RiderManagement: React.FC = () => {
             const { error } = await supabase.rpc('sync_riders', { riders_data: ridersToUpsert });
             if (error) throw error;
 
+            // ALWAYS refresh data, even on auto-sync
+            await fetchRiders(false);
+
             if (!isAuto) {
                 setSyncStats({
                     total: ridersToUpsert.length,
@@ -138,7 +108,6 @@ const RiderManagement: React.FC = () => {
                     updated: ridersToUpsert.length
                 });
                 alert(`Sync Complete! Processed ${ridersToUpsert.length} rows.`);
-                await fetchRiders();
             }
 
         } catch (error: any) {
@@ -147,7 +116,45 @@ const RiderManagement: React.FC = () => {
         } finally {
             if (!isAuto) setSyncing(false);
         }
-    };
+    }, [sheetId]);
+
+    useEffect(() => {
+        fetchRiders();
+
+        // Load settings
+        const savedSheetId = localStorage.getItem('rider_master_sheet_id');
+        if (savedSheetId) setSheetId(savedSheetId);
+
+        // Realtime Subscription
+        const subscription = supabase
+            .channel('rider_master_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'rider_master' }, () => {
+                fetchRiders(false); // Silent refresh
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subscription);
+            if (autoSyncInterval.current) clearInterval(autoSyncInterval.current);
+        };
+    }, []);
+
+    // Effect for Auto Sync Toggle
+    useEffect(() => {
+        if (autoSync) {
+            handleSync(true); // Initial sync
+            autoSyncInterval.current = setInterval(() => {
+                handleSync(true);
+            }, 10000); // 10 sec
+        } else {
+            if (autoSyncInterval.current) clearInterval(autoSyncInterval.current);
+        }
+        return () => {
+            if (autoSyncInterval.current) clearInterval(autoSyncInterval.current);
+        };
+    }, [autoSync, handleSync]); // Re-run if sync function updates (e.g. sheetId changes)
+
+
 
     const toggleRiderStatus = async (rider: RiderMaster) => {
         const newStatus = rider.status === 'suspended' ? 'active' : 'suspended';
