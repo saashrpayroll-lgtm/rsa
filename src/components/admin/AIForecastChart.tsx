@@ -7,12 +7,16 @@ interface ForecastProps {
 }
 
 const AIForecastChart: React.FC<ForecastProps> = ({ data }) => {
-    const maxVal = Math.max(...data.map(d => Math.max(d.actual || 0, d.predicted)));
+    // Normalize logic
+    const parseNum = (v: any) => {
+        const n = Number(v);
+        return isNaN(n) ? 0 : n;
+    }
+    const maxVal = Math.max(1, ...data.map(d => Math.max(parseNum(d.actual), parseNum(d.predicted))));
     const height = 200;
 
-    // Normalize logic
-    const getY = (val: number) => height - (val / maxVal) * height;
-    const getX = (idx: number) => (idx / (data.length - 1)) * 100;
+    const getY = (val: number) => height - (parseNum(val) / maxVal) * height;
+    const getX = (idx: number) => (idx / Math.max(1, data.length - 1)) * 100;
 
     const actualPath = data
         .map((d, i) => d.actual !== null ? `${getX(i)},${getY(d.actual)}` : null)
@@ -22,6 +26,13 @@ const AIForecastChart: React.FC<ForecastProps> = ({ data }) => {
     const predictedPath = data
         .map((d, i) => `${getX(i)},${getY(d.predicted)}`)
         .join(' L ');
+
+    // Prevent rendering if no data
+    if (!data || data.length === 0) return (
+        <div className="bg-white dark:bg-gray-800/30 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-gray-700/50 p-6 shadow-sm h-[300px] flex items-center justify-center">
+            <p className="text-gray-400 text-sm">Waiting for forecast data...</p>
+        </div>
+    );
 
     return (
         <div className="bg-white dark:bg-gray-800/30 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-gray-700/50 p-6 shadow-sm">
@@ -47,35 +58,30 @@ const AIForecastChart: React.FC<ForecastProps> = ({ data }) => {
                         <line key={p} x1="0" y1={p * 2} x2="100" y2={p * 2} stroke="currentColor" className="text-gray-100 dark:text-gray-800" strokeWidth="0.5" />
                     ))}
 
-                    {/* Predicted Line (Dashed) */}
-                    <motion.path
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 2, delay: 0.5 }}
+                    {/* Predicted Line (Dashed) - Static to prevent flicker */}
+                    <path
                         d={`M ${predictedPath}`}
                         fill="none"
                         stroke="#a855f7"
                         strokeWidth="2"
                         strokeDasharray="4 4"
-                        className="opacity-70"
+                        className="opacity-70 transition-all duration-500 ease-in-out"
                     />
 
-                    {/* Actual Line (Solid) */}
-                    <motion.path
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 1.5 }}
+                    {/* Actual Line (Solid) - Static to prevent flicker */}
+                    <path
                         d={`M ${actualPath}`}
                         fill="none"
                         stroke="#3b82f6"
                         strokeWidth="3"
                         strokeLinecap="round"
                         strokeLinejoin="round"
+                        className="transition-all duration-500 ease-in-out"
                     />
 
                     {/* Interaction Points (Mock for now) */}
                     {data.map((d, i) => (
-                        (d.actual && d.predicted && Math.abs(d.actual - d.predicted) > 5) && (
+                        (d.actual !== null && d.predicted && Math.abs(Number(d.actual) - Number(d.predicted)) > 5) && (
                             <g key={i}>
                                 <circle cx={getX(i)} cy={getY(d.actual)} r="1.5" className="fill-red-500 animate-pulse" />
                             </g>

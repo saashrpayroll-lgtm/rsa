@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UserProfile, Ticket } from '../types';
 import { cn } from '../lib/utils';
-import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, TrendingUp } from 'lucide-react';
+import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, TrendingUp, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import TechnicianPerformance from '../components/admin/TechnicianPerformance';
@@ -354,6 +354,14 @@ const AdminDashboard: React.FC = () => {
                         </div>
                         <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-0.5">Activity & Logs</h3>
                         <p className="text-[10px] text-gray-500 dark:text-gray-400">Technician Analytics</p>
+                    </div>
+
+                    <div onClick={() => navigate('/admin/reports')} className="flex-1 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl p-4 cursor-pointer hover:scale-[1.02] transition-transform">
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400"><FileText size={16} /></div>
+                            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Reports</h3>
+                        </div>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Download Excel / PDF</p>
                     </div>
 
                     {/* Existing Create User Card */}

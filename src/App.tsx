@@ -21,6 +21,7 @@ import { AdminTicketList } from './components/admin/AdminTicketList';
 import { Loader2 } from 'lucide-react';
 import RiderManagement from './pages/admin/RiderManagement';
 import ActivityDashboard from './pages/admin/ActivityDashboard';
+import Reports from './pages/admin/Reports';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, loading } = useAuth();
@@ -100,6 +101,7 @@ const App: React.FC = () => {
                   <Route path="admin/tickets/cancelled" element={<CancelledTickets />} />
                   <Route path="admin/users" element={<UserManagement />} />
                   <Route path="admin/riders" element={<RiderManagement />} />
+                  <Route path="admin/reports" element={<Reports />} />
                   <Route path="admin/activity" element={<ActivityDashboard />} />
                 </Route>
               </Routes>

@@ -102,7 +102,7 @@ BEGIN
         ELSE 10
       END) 
       + (floor(random() * 5) - 2) -- Noise
-    )::numeric AS predicted
+    )::int AS predicted
   FROM hours h
   LEFT JOIN actuals a ON h.hour_start = a.hour_start
   ORDER BY h.hour_start;
