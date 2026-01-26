@@ -32,12 +32,13 @@ const Login: React.FC = () => {
 
                 // 2. Fallback: Check if User exists in Master but NOT in Auth (First Time Login)
                 // We ONLY do this if the password provided is the default '123456'
+                // 2. Fallback: Check if User exists in Master but NOT in Auth (First Time Login)
+                // We ONLY do this if the password provided is the default '123456'
                 if (password === '123456') {
-                    // Use Secure RPC instead of direct table select to bypass RLS
+                    // A. Check RIDER Eligibility
                     const { data: masterData, error: rpcError } = await supabase
                         .rpc('check_rider_eligibility', { check_mobile: mobile });
 
-                    // RPC returns an array of rows
                     const riderData = masterData && masterData.length > 0 ? masterData[0] : null;
 
                     if (riderData) {
@@ -48,8 +49,6 @@ const Login: React.FC = () => {
 
                             // Attempt to Create Auth Account
                             const email = `${mobile}@hub.com`;
-
-
                             const { data: authData, error: signUpError } = await supabase.auth.signUp({
                                 email,
                                 password: '123456',
@@ -57,12 +56,7 @@ const Login: React.FC = () => {
                             });
 
                             if (signUpError) {
-                                // If user already exists in Auth, but signIn failed ==> Wrong Password
                                 if (signUpError.message.includes("already registered")) {
-                                    // Special Case: User exists, but standard login failed.
-                                    // If password was 123456, we tried to sign up again but failed.
-                                    // This means the AUTH user exists, but maybe with a different password?
-                                    // OR, if they are stuck, they need a reset.
                                     throw new Error("Account exists. If you cannot login, please request a Password Reset.");
                                 }
                                 throw signUpError;
@@ -72,7 +66,6 @@ const Login: React.FC = () => {
                                 // 3. Create/Sync Profile
                                 const { data: profileCheck } = await supabase.from('profiles').select('role').eq('id', authData.user.id).single();
 
-                                // SECURITY: PREVENT ADMIN LOGIN ON PUBLIC PORTAL
                                 if (profileCheck?.role === 'admin') {
                                     await supabase.auth.signOut();
                                     throw new Error("ACCESS DENIED: Administrators must use the Secure Portal.");
@@ -81,7 +74,6 @@ const Login: React.FC = () => {
                                 await supabase.from('profiles').upsert({
                                     id: authData.user.id,
                                     role: 'rider',
-
                                     mobile: riderData.mobile,
                                     full_name: riderData.full_name,
                                     chassis_number: riderData.chassis_number,
@@ -98,8 +90,54 @@ const Login: React.FC = () => {
                             console.error('Provisioning failed:', provisionError);
                             throw new Error(provisionError.message || "Login failed during account setup.");
                         }
-                    } else if (rpcError) {
-                        console.error("RPC check failed:", rpcError);
+                    }
+
+                    // B. Check TECHNICIAN Eligibility (If not a rider)
+                    if (!riderData) {
+                        const { data: techData, error: techRpcError } = await supabase
+                            .rpc('check_technician_eligibility', { check_mobile: mobile });
+
+                        const technician = techData && techData.length > 0 ? techData[0] : null;
+
+                        if (technician) {
+                            try {
+                                if (technician.status === 'suspended') throw new Error('Account Suspended.');
+
+                                const email = `${mobile}@hub.com`;
+                                const { data: authData, error: signUpError } = await supabase.auth.signUp({
+                                    email,
+                                    password: '123456',
+                                    options: { data: { full_name: technician.full_name, role: technician.role } }
+                                });
+
+                                if (signUpError) {
+                                    if (signUpError.message.includes("already registered")) {
+                                        throw new Error("Account exists. Please request password reset.");
+                                    }
+                                    throw signUpError;
+                                }
+
+                                if (authData.user) {
+                                    await supabase.from('profiles').upsert({
+                                        id: authData.user.id,
+                                        role: technician.role, // 'hub_tech' or 'rsa_tech'
+                                        mobile: technician.mobile,
+                                        full_name: technician.full_name,
+                                        status: 'active'
+                                    });
+
+                                    localStorage.setItem('portal_type', 'public');
+                                    navigate('/tech'); // Direct to tech dashboard
+                                    return;
+                                }
+
+                            } catch (techProvError: any) {
+                                console.error("Tech Provision Error:", techProvError);
+                                throw new Error(techProvError.message || "Technician login failed.");
+                            }
+                        } else if (rpcError || techRpcError) {
+                            console.error("RPC checks failed:", rpcError, techRpcError);
+                        }
                     }
                 }
 
@@ -168,6 +206,13 @@ const Login: React.FC = () => {
                             password: '123456',
                             options: { data: { full_name: userDetails.found_name, role: userDetails.found_role } }
                         });
+
+                        if (signUpError) {
+                            console.warn("Legacy JIT SignUp Error:", signUpError);
+                            // Continue to check authData.user or throw?
+                            // Existing code didn't throw, just ignored. 
+                            // SAFE FIX: Log it. If user is null, it won't enter the next block anyway.
+                        }
 
                         if (authData.user) {
                             // Success! We created the missing Auth.
