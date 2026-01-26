@@ -286,6 +286,8 @@ const Login: React.FC = () => {
                                         const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                                         setMobile(val);
                                     }}
+                                    className="w-full bg-gray-50 dark:bg-black/20 text-gray-900 dark:text-white py-4 pl-12 pr-4 rounded-xl border border-gray-200 dark:border-gray-700 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all font-bold text-lg placeholder:font-normal"
+                                    placeholder="Enter your 10-digit mobile number"
                                     required
                                 />
                             </div>
