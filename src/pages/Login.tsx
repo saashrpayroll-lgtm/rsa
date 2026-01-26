@@ -146,6 +146,42 @@ const Login: React.FC = () => {
             navigate('/');
         } catch (err: any) {
             console.error('Login error:', err);
+
+            // JIT PROVISIONING FALLBACK
+            // If standard login fails, but password is '123456', check if the user SHOULD exist.
+            if (password === '123456') {
+                try {
+                    const { data: userExists } = await supabase.rpc('check_user_exists', { check_mobile: mobile });
+                    if (userExists && userExists.length > 0) {
+                        const userDetails = userExists[0];
+
+                        // User exists in Profile/Master but Auth failed. Try to provision Auth.
+                        // NOTE: This only works if 'check_user_exists' reads from a table NOT linked to auth.users (like rider_master).
+                        // Since Techs don't have a master table yet, this is strictly for Riders 
+                        // UNLESS we separate profiles. Keeping it simple for now.
+
+                        // Actually, if we are here, it means signIn failed.
+                        // If we try signUp now:
+                        const email = `${mobile}@hub.com`;
+                        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+                            email,
+                            password: '123456',
+                            options: { data: { full_name: userDetails.found_name, role: userDetails.found_role } }
+                        });
+
+                        if (authData.user) {
+                            // Success! We created the missing Auth.
+                            // Now the Profile Trigger will run (or handled manually).
+                            // Force reload to login
+                            window.location.reload();
+                            return;
+                        }
+                    }
+                } catch (jitError) {
+                    console.warn("JIT failed", jitError);
+                }
+            }
+
             setError(err.message || 'Failed to login.');
         } finally {
             setLoading(false);
