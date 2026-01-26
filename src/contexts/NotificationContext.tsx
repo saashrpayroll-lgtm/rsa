@@ -111,9 +111,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     },
                     (payload) => {
                         const newNotif = payload.new as Notification;
-                        // Prevent Duplicates (Store Level)
+
+                        // Prevent Duplicates (ID Check)
                         setNotifications(prev => {
                             if (prev.some(n => n.id === newNotif.id)) return prev;
+
+                            // Content-Based Deduplication (Ignore if same title+message received < 2s ago)
+                            const now = Date.now();
+                            const recentDuplicate = prev.find(n =>
+                                n.title === newNotif.title &&
+                                n.message === newNotif.message &&
+                                (now - new Date(n.created_at).getTime() < 2000)
+                            );
+
+                            if (recentDuplicate) {
+                                console.warn("Ignored duplicate notification (content match):", newNotif.title);
+                                return prev;
+                            }
+
                             return [newNotif, ...prev];
                         });
                     }
