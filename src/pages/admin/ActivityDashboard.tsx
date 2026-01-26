@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, Download } from 'lucide-react';
@@ -128,27 +128,63 @@ const ActivityDashboard = () => {
                     <AIAnalyticsWidget />
 
                     {/* Quick Stats Summary */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-                        <h4 className="font-bold text-gray-900 dark:text-white mb-4 text-sm uppercase tracking-wider">System Pulse</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
-                                <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">98%</div>
-                                <div className="text-[10px] text-gray-500 uppercase">Uptime</div>
-                            </div>
-                            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
-                                <div className="text-2xl font-bold text-green-600 dark:text-green-400">12m</div>
-                                <div className="text-[10px] text-gray-500 uppercase">Avg Response</div>
-                            </div>
-                            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
-                                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">45</div>
-                                <div className="text-[10px] text-gray-500 uppercase">Active Techs</div>
-                            </div>
-                            <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
-                                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">3</div>
-                                <div className="text-[10px] text-gray-500 uppercase">Overloaded</div>
-                            </div>
-                        </div>
-                    </div>
+                    <SystemPulseWidget />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const SystemPulseWidget = () => {
+    const [stats, setStats] = useState({ uptime: 100, response: 0, active: 0, overloaded: 0 });
+
+    useEffect(() => {
+        const fetchPulse = async () => {
+            const { data } = await supabase.rpc('get_system_pulse');
+            if (data && data[0]) {
+                setStats({
+                    uptime: data[0].uptime_percentage ?? 100,
+                    response: data[0].avg_response_minutes ?? 0,
+                    active: data[0].active_techs_count ?? 0,
+                    overloaded: data[0].overloaded_techs_count ?? 0
+                });
+            }
+        };
+
+        fetchPulse();
+        const interval = setInterval(fetchPulse, 30000); // 30s Pulse
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+            {/* Pulse Animation Indicator */}
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span className="text-[10px] uppercase text-gray-400 font-bold tracking-widest">Live</span>
+            </div>
+
+            <h4 className="font-bold text-gray-900 dark:text-white mb-4 text-sm uppercase tracking-wider">System Pulse</h4>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
+                    <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{stats.uptime}%</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Resolution Rate</div>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.response}m</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Avg Response</div>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.active}</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Active Techs</div>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
+                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.overloaded}</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Overloaded</div>
                 </div>
             </div>
         </div>
