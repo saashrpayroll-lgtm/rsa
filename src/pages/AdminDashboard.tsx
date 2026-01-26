@@ -13,14 +13,7 @@ import SLAMonitor from '../components/admin/SLAMonitor';
 
 // Mock Data generator for charts
 const generateSparkline = () => Array.from({ length: 10 }, () => Math.floor(Math.random() * 50) + 20);
-const generateForecast = () => {
-    const hours = ['12PM', '2PM', '4PM', '6PM', '8PM', '10PM', '12AM'];
-    return hours.map(h => ({
-        time: h,
-        actual: h === '12AM' || h === '10PM' ? null : Math.floor(Math.random() * 30) + 10,
-        predicted: Math.floor(Math.random() * 40) + 15
-    }));
-};
+
 
 const UserRow: React.FC<{ user: UserProfile }> = ({ user }) => (
     <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 transition shadow-sm hover:shadow-md">
@@ -66,11 +59,11 @@ const AdminDashboard: React.FC = () => {
     });
     const [dispatchLogs, setDispatchLogs] = useState<string[]>([]);
     const [isRealtime, setIsRealtime] = useState(false);
+    const [forecastData, setForecastData] = useState<any[]>([]);
 
     useEffect(() => {
-        fetchData();
-        fetchSettings();
-
+        fetchDashboardData();
+        const interval = setInterval(fetchDashboardData, 30000);
         // Real-time subscription for Settings
         const settingsSubscription = supabase
             .channel('system_settings_changes')
@@ -87,21 +80,23 @@ const AdminDashboard: React.FC = () => {
             .channel('admin_dashboard_tickets')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
                 // Refresh data on ANY ticket change
-                fetchData();
+                fetchDashboardData();
                 setIsRealtime(true);
                 setTimeout(() => setIsRealtime(false), 2000);
             })
             .subscribe();
 
         return () => {
+            clearInterval(interval);
             supabase.removeChannel(settingsSubscription);
             supabase.removeChannel(ticketsSubscription);
         };
     }, []);
 
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
         setLoading(true);
         try {
+            // 1. Fetch Users & Tickets
             const [usersResponse, ticketsResponse] = await Promise.all([
                 supabase.from('profiles').select('*'),
                 supabase.from('tickets').select('*')
@@ -112,32 +107,31 @@ const AdminDashboard: React.FC = () => {
 
             setUsers(usersResponse.data as UserProfile[]);
             setTickets(ticketsResponse.data as Ticket[]);
-        } catch (error) {
-            console.error('Admin fetch error:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    const fetchSettings = async () => {
-        try {
-            const { data, error } = await supabase.from('system_settings').select('*').limit(1).single();
-            if (error && error.code !== 'PGRST116') throw error;
+            // 2. Fetch Settings
+            const { data: settingsData, error: settingsError } = await supabase.from('system_settings').select('*').limit(1).single();
 
-            if (data) {
-                setSystemSettings(data);
-            } else {
-                // Initialize if empty (fallback, though SQL should have handled this)
+            if (settingsData) {
+                setSystemSettings(settingsData);
+            } else if (settingsError && settingsError.code === 'PGRST116') {
+                // Initialize if empty
                 const defaultSettings = {
                     auto_assign_enabled: true,
                     rsa_routing_enabled: true,
                     hub_routing_enabled: true
                 };
-                const { data: newData, error: insertError } = await supabase.from('system_settings').insert([defaultSettings]).select().single();
-                if (!insertError && newData) setSystemSettings(newData);
+                const { data: newData } = await supabase.from('system_settings').insert([defaultSettings]).select().single();
+                if (newData) setSystemSettings(newData);
             }
+
+            // 3. Fetch Forecast
+            const { data: forecast } = await supabase.rpc('get_ticket_forecast');
+            if (forecast) setForecastData(forecast);
+
         } catch (error) {
-            console.error('Error fetching system settings:', error);
+            console.error('Admin fetch error:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -187,7 +181,7 @@ const AdminDashboard: React.FC = () => {
 
                         if (!error) {
                             addLog(`🤖 Auto-Assigned Ticket #${ticket.id.slice(0, 4)} (${ticket.category}) to ${tech.full_name || 'Tech'} as ${requiredRole}`);
-                            fetchData(); // Refresh UI
+                            fetchDashboardData(); // Refresh UI
                         }
                     } catch (err) {
                         console.error("Auto-assign error", err);
@@ -324,7 +318,7 @@ const AdminDashboard: React.FC = () => {
 
                 {/* 2. Forecast & SLA (Middle Layer) */}
                 <div className="lg:col-span-2">
-                    <AIForecastChart data={generateForecast()} />
+                    <AIForecastChart data={forecastData} />
                 </div>
                 <div className="lg:col-span-1">
                     <SLAMonitor />

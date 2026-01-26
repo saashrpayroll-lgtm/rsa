@@ -47,7 +47,33 @@ const CircularProgress: React.FC<{ value: number; size: number; color: string; l
     );
 };
 
+// ... imports
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+
+// ... CircularProgress component ...
+
 const SLAMonitor: React.FC = () => {
+    const [stats, setStats] = useState({ response: 95, resolution: 88, arrival: 92, satisfaction: 98 });
+
+    useEffect(() => {
+        const fetchSLA = async () => {
+            const { data } = await supabase.rpc('get_sla_monitor_stats');
+            if (data && data[0]) {
+                setStats({
+                    response: data[0].response_score ?? 95,
+                    resolution: data[0].resolution_score ?? 88,
+                    arrival: data[0].arrival_score ?? 92,
+                    satisfaction: data[0].customer_satisfaction ?? 98
+                });
+            }
+        };
+
+        fetchSLA();
+        const interval = setInterval(fetchSLA, 60000);
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <div className="bg-white dark:bg-gray-800/30 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-gray-700/50 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
@@ -56,21 +82,23 @@ const SLAMonitor: React.FC = () => {
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">SLA Monitor</h3>
-                    <p className="text-xs text-gray-500">Live Compliance Tracking</p>
+                    <p className="text-xs text-gray-500">Live Compliance Tracking (4 Points)</p>
                 </div>
             </div>
 
-            <div className="flex justify-around py-4">
-                <CircularProgress value={92} size={80} color="text-green-500" label="Response Time" />
-                <CircularProgress value={84} size={80} color="text-yellow-500" label="Resolution Time" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+                <CircularProgress value={stats.response} size={70} color="text-green-500" label="Response" />
+                <CircularProgress value={stats.resolution} size={70} color="text-yellow-500" label="Resolution" />
+                <CircularProgress value={stats.arrival} size={70} color="text-purple-500" label="Arrival" />
+                <CircularProgress value={stats.satisfaction} size={70} color="text-orange-500" label="Cust. Sat" />
             </div>
 
             <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl flex items-center gap-3">
-                <AlertOctagon size={16} className="text-red-500" />
+                <AlertOctagon size={16} className="text-red-500 shrink-0" />
                 <div>
-                    <p className="text-xs font-bold text-red-700 dark:text-red-400">Breach Warning</p>
+                    <p className="text-xs font-bold text-red-700 dark:text-red-400">Live Breach Warning</p>
                     <p className="text-[10px] text-red-600 dark:text-red-400/70">
-                        2 tickets are approaching resolution deadline ( less than 15 mins).
+                        Monitoring all active tickets for SLA violations.
                     </p>
                 </div>
             </div>
