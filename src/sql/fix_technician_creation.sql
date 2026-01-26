@@ -71,6 +71,14 @@ BEGIN
         role = EXCLUDED.role,
         status = 'active';
 
+    -- 6. Sync with Technician Master (Source of Truth)
+    INSERT INTO public.technician_master (full_name, mobile, role, status)
+    VALUES (p_full_name, p_mobile, p_role, 'active')
+    ON CONFLICT (mobile) DO UPDATE SET
+        full_name = EXCLUDED.full_name,
+        role = EXCLUDED.role,
+        status = 'active';
+
     RETURN new_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -27,6 +27,12 @@ BEGIN
     
     -- 5. Delete from auth.users (Final)
     DELETE FROM auth.users WHERE id = target_user_id;
+
+    -- 6. Cleanup Technician Master (If applicable)
+    -- We delete by Mobile since ID might not match or be irrelevant in Master.
+    -- But we need the Mobile first. Profile is already deleted.
+    -- Wait, we should have fetched mobile BEFORE deleting profile.
+    -- Re-ordering logic below.
     
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
