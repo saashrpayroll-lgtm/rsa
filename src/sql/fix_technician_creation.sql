@@ -1,4 +1,4 @@
--- Fix Technician Creation (Dynamic Instance ID)
+-- Fix Technician Creation (Stable Version)
 
 CREATE OR REPLACE FUNCTION create_technician_user(
     p_email TEXT,
@@ -12,8 +12,7 @@ DECLARE
     new_user_id UUID;
     v_instance_id UUID;
 BEGIN
-    -- 1. Security Check: Ensure caller is admin
-    -- Explicitly specify table alias for columns to avoid ambiguity/conflict
+    -- 1. Security Check
     IF NOT EXISTS (
         SELECT 1 FROM profiles 
         WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
@@ -23,13 +22,12 @@ BEGIN
 
     -- 2. Validate Role
     IF p_role NOT IN ('hub_tech', 'rsa_tech', 'admin') THEN
-        RAISE EXCEPTION 'Invalid Role. Can only create technicians or admins.';
+        RAISE EXCEPTION 'Invalid Role.';
     END IF;
 
-    -- 3. Get Current Instance ID (from the Admin user)
+    -- 3. Get Instance ID from Admin
     SELECT instance_id INTO v_instance_id FROM auth.users WHERE id = auth.uid();
     
-    -- Fallback for local dev if null (though unlikely for authenticated user)
     IF v_instance_id IS NULL THEN
         v_instance_id := '00000000-0000-0000-0000-000000000000';
     END IF;
@@ -49,22 +47,22 @@ BEGIN
         raw_user_meta_data,
         is_super_admin
     ) VALUES (
-        v_instance_id, -- DYNAMIC INSTANCE ID
+        v_instance_id,
         gen_random_uuid(),
         'authenticated',
-        'authenticated', -- Postgres Role
+        'authenticated', 
         p_email,
-        crypt(p_password, gen_salt('bf', 10)), -- Secure hashing
-        NOW(), -- Auto-confirm email
+        crypt(p_password, gen_salt('bf')), -- Standard cost
         NOW(),
         NOW(),
-        '{"provider": "email", "providers": ["email"]}', -- App Metadata
-        jsonb_build_object('full_name', p_full_name, 'role', p_role), -- User Metadata
+        NOW(),
+        '{"provider": "email", "providers": ["email"]}',
+        jsonb_build_object('full_name', p_full_name, 'role', p_role),
         FALSE
     )
     RETURNING id INTO new_user_id;
 
-    -- 5. Create Profile in public.profiles
+    -- 5. Create Profile
     INSERT INTO public.profiles (id, full_name, mobile, role, status)
     VALUES (new_user_id, p_full_name, p_mobile, p_role, 'active')
     ON CONFLICT (id) DO UPDATE SET
