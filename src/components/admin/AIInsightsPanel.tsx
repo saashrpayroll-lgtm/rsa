@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, AlertCircle, CheckCircle, Info, RefreshCw } from 'lucide-react';
 import { generateAdminInsights, type AdminInsight } from '../../lib/groq';
 import { cn } from '../../lib/utils';
@@ -11,6 +11,12 @@ const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ metrics }) => {
     const [insights, setInsights] = useState<AdminInsight[]>([]);
     const [loading, setLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+    useEffect(() => {
+        if (metrics) {
+            handleGenerate();
+        }
+    }, [metrics]);
 
     const handleGenerate = async () => {
         setLoading(true);
