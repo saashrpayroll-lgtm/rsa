@@ -58,7 +58,7 @@ BEGIN
         'authenticated',
         'authenticated', 
         p_email,
-        crypt(p_password, gen_salt('bf')), -- Standard cost
+        crypt(p_password, gen_salt('bf', 10)), -- Standard Supabase cost
         NOW(),
         NOW(),
         NOW(),

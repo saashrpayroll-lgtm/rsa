@@ -93,11 +93,37 @@ const Login: React.FC = () => {
                         if (technician) {
                             if (technician.status === 'suspended') throw new Error('Account Suspended.');
 
-                            const { data: authData } = await supabase.auth.signUp({
+                            const { data: authData, error: signUpError } = await supabase.auth.signUp({
                                 email: `${mobile}@hub.com`,
                                 password: '123456',
                                 options: { data: { full_name: technician.full_name, role: technician.role } }
                             });
+
+                            // AGGRESSIVE REPAIR
+                            if (signUpError && signUpError.message.includes('already registered')) {
+                                console.warn("Tech exists but Login Failed. Repairing...", signUpError);
+                                await supabase.rpc('repair_technician_account', { check_mobile: mobile });
+
+                                // Retry SignUp
+                                const { data: retryAuth } = await supabase.auth.signUp({
+                                    email: `${mobile}@hub.com`,
+                                    password: '123456',
+                                    options: { data: { full_name: technician.full_name, role: technician.role } }
+                                });
+
+                                if (retryAuth.user) {
+                                    await supabase.from('profiles').upsert({
+                                        id: retryAuth.user.id,
+                                        role: technician.role,
+                                        mobile: technician.mobile,
+                                        full_name: technician.full_name,
+                                        status: 'active'
+                                    });
+                                    localStorage.setItem('portal_type', 'public');
+                                    window.location.reload();
+                                    return;
+                                }
+                            }
 
                             if (authData.user) {
                                 await supabase.from('profiles').upsert({
