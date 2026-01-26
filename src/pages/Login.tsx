@@ -14,9 +14,46 @@ const Login: React.FC = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showResetModal, setShowResetModal] = useState(false);
-    const { signIn } = useAuth();
+    const { signIn, session } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
+
+    // AUTO-REDIRECT
+    React.useEffect(() => {
+        if (session?.user) {
+            const checkUser = async () => {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('force_password_change, status, role')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (profile) {
+                    if (profile.status === 'suspended') {
+                        await supabase.auth.signOut();
+                        setError("Account Suspended.");
+                        return;
+                    }
+                    if (profile.force_password_change) {
+                        navigate('/change-password');
+                        return;
+                    }
+
+                    localStorage.setItem('portal_type', 'public');
+                    if (profile.role === 'admin') {
+                        await supabase.auth.signOut();
+                        setError("Admin must use Secure Portal.");
+                        return;
+                    }
+
+                    if (profile.role === 'rider') navigate('/rider');
+                    else if (['hub_tech', 'rsa_tech'].includes(profile.role)) navigate('/tech');
+                    else navigate('/');
+                }
+            };
+            checkUser();
+        }
+    }, [session, navigate]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -74,7 +111,8 @@ const Login: React.FC = () => {
                                 chassis_number: riderData.chassis_number,
                                 wallet_balance: riderData.wallet_balance,
                                 team_leader: riderData.team_leader_name,
-                                status: 'active'
+                                status: 'active',
+                                force_password_change: true
                             });
 
                             localStorage.setItem('portal_type', 'public');
@@ -117,7 +155,8 @@ const Login: React.FC = () => {
                                         role: technician.role,
                                         mobile: technician.mobile,
                                         full_name: technician.full_name,
-                                        status: 'active'
+                                        status: 'active',
+                                        force_password_change: true
                                     });
                                     localStorage.setItem('portal_type', 'public');
                                     window.location.reload();
