@@ -33,51 +33,10 @@ BEGIN
         SELECT instance_id INTO v_instance_id FROM auth.users WHERE instance_id IS NOT NULL LIMIT 1;
     END IF;
     
-    IF v_instance_id IS NULL THEN
-       -- Last Resort
-       v_instance_id := '00000000-0000-0000-0000-000000000000';
-    END IF;
-
-    -- 4. Create User in auth.users
-    INSERT INTO auth.users (
-        instance_id,
-        id,
-        aud,
-        role,
-        email,
-        encrypted_password,
-        email_confirmed_at,
-        created_at,
-        updated_at,
-        raw_app_meta_data,
-        raw_user_meta_data,
-        is_super_admin
-    ) VALUES (
-        v_instance_id,
-        gen_random_uuid(),
-        'authenticated',
-        'authenticated', 
-        p_email,
-        crypt(p_password, gen_salt('bf', 10)), -- Standard Supabase cost
-        NOW(),
-        NOW(),
-        NOW(),
-        '{"provider": "email", "providers": ["email"]}',
-        jsonb_build_object('full_name', p_full_name, 'role', p_role),
-        FALSE
-    )
-    RETURNING id INTO new_user_id;
-
-    -- 5. Create Profile
-    INSERT INTO public.profiles (id, full_name, mobile, role, status)
-    VALUES (new_user_id, p_full_name, p_mobile, p_role, 'active')
-    ON CONFLICT (id) DO UPDATE SET
-        full_name = EXCLUDED.full_name,
-        mobile = EXCLUDED.mobile,
-        role = EXCLUDED.role,
-        status = 'active';
-
-    -- 6. Sync with Technician Master (Source of Truth)
+    -- 4. Sync with Technician Master (Source of Truth)
+    -- This is the ONLY thing we do now. We rely on JIT (Just-In-Time) provisioning at first login
+    -- to create the actual Auth User and Profile. This avoids hash compatibility issues.
+    
     INSERT INTO public.technician_master (full_name, mobile, role, status)
     VALUES (p_full_name, p_mobile, p_role, 'active')
     ON CONFLICT (mobile) DO UPDATE SET
@@ -85,7 +44,14 @@ BEGIN
         role = EXCLUDED.role,
         status = 'active';
 
-    RETURN new_user_id;
+    -- 5. Cleanup overlapping Auth/Profile if they exist brokenly
+    -- If an auth user exists for this mobile, we DELETE it to ensure fresh JIT creation
+    -- This acts as an auto-repair during creation/update
+    DELETE FROM auth.users WHERE email = p_mobile || '@hub.com';
+
+    -- Return a dummy UUID since we didn't create a real user yet
+    -- The real ID will be generated when they login
+    RETURN '00000000-0000-0000-0000-000000000000'::uuid;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
