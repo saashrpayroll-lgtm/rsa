@@ -11,11 +11,10 @@ const ActivityDashboard = () => {
     const navigate = useNavigate();
     const { t } = useLanguage();
     const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('day');
+    const [activityData, setActivityData] = useState<any[]>([]);
 
-
-
-    // ... existing mock data ...
-    const chartData = [
+    // Mock Data Fallback
+    const mockChartData = [
         { time: '08:00', active_users: 12 },
         { time: '10:00', active_users: 45 },
         { time: '12:00', active_users: 82 },
@@ -24,6 +23,21 @@ const ActivityDashboard = () => {
         { time: '18:00', active_users: 110 },
         { time: '20:00', active_users: 75 },
     ];
+
+    useEffect(() => {
+        const fetchChartData = async () => {
+            const { data, error } = await supabase.rpc('get_activity_chart_data');
+            if (!error && data) {
+                setActivityData(data);
+            } else {
+                console.error("Chart Data Fetch Error:", error);
+            }
+        };
+
+        fetchChartData();
+        const interval = setInterval(fetchChartData, 60000); // Update every minute
+        return () => clearInterval(interval);
+    }, []);
 
     const handleDownloadReport = async () => {
         try {
@@ -119,7 +133,8 @@ const ActivityDashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column: Charts & Tables */}
                 <div className="lg:col-span-2 space-y-6">
-                    <ActivityChart data={chartData} />
+                    {/* Pass real data or fallback to mock */}
+                    <ActivityChart data={activityData.length > 0 ? activityData : mockChartData} />
                     <TechnicianPerformanceTable />
                 </div>
 
@@ -135,6 +150,7 @@ const ActivityDashboard = () => {
     );
 };
 
+// Internal Component for System Pulse
 const SystemPulseWidget = () => {
     const [stats, setStats] = useState({ uptime: 100, response: 0, active: 0, overloaded: 0 });
 
