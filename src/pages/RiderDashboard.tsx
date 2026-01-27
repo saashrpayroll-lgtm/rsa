@@ -454,8 +454,8 @@ const RiderDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Create Ticket Buttons */}
-                {!showForm && !tickets.some(t => ['PENDING', 'ACCEPTED', 'ON_WAY'].includes(t.status)) && (
+                {/* Create Ticket Buttons - STRICT SINGLE TICKET RULE */}
+                {!showForm && !tickets.some(t => ['PENDING', 'ACCEPTED', 'ON_WAY', 'IN_PROGRESS'].includes(t.status)) ? (
                     <div className="grid grid-cols-2 gap-4">
                         {/* Repair Button - Only if within 2km */}
                         <button
@@ -499,6 +499,16 @@ const RiderDashboard: React.FC = () => {
                             {distanceToHub !== null && distanceToHub <= 2 && <span className="text-[10px] text-blue-400">{t('rider.go_to_hub')}</span>}
                         </button>
                     </div>
+                ) : !showForm && (
+                    <div className="p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-full">
+                            <Clock size={20} className="text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Active Request in Progress</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">You can raise a new ticket only after the current one is closed.</p>
+                        </div>
+                    </div>
                 )}
 
                 {/* Active Activity Section */}
@@ -516,21 +526,9 @@ const RiderDashboard: React.FC = () => {
                                         <motion.div
                                             key={ticket.id}
                                             layout
-                                            initial={{ opacity: 0, scale: 0.9, x: -20 }}
-                                            animate={{
-                                                opacity: 1,
-                                                scale: 1,
-                                                x: 0,
-                                                // EARTHQUAKE ANIMATION for active tickets or updates
-                                                rotate: [0, -1, 1, -1, 1, 0],
-                                                transition: {
-                                                    type: "spring",
-                                                    stiffness: 300,
-                                                    damping: 20
-                                                }
-                                            }}
-                                            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                                            whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
                                             className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-6 rounded-2xl border border-gray-200 dark:border-cyan-500/30 shadow-lg relative overflow-hidden transition-all group"
                                         >
                                             {/* Live Status Indicator */}
@@ -583,12 +581,18 @@ const RiderDashboard: React.FC = () => {
                                                         const Icon = step.icon;
                                                         return (
                                                             <div key={step.status} className="flex flex-col items-center gap-2">
-                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10 ${isActive ? 'bg-cyan-500 border-cyan-400 text-white scale-110 shadow-[0_0_15px_#22d3ee]' :
-                                                                    isCompleted ? 'bg-cyan-100 dark:bg-cyan-900/50 border-cyan-500 text-cyan-600 dark:text-cyan-400' :
-                                                                        'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-600'
-                                                                    }`}>
+                                                                <motion.div
+                                                                    animate={isActive ? {
+                                                                        x: [0, -4, 4, -4, 4, 0],
+                                                                        rotate: [0, -5, 5, -5, 5, 0],
+                                                                        transition: { duration: 0.5, repeat: Infinity, repeatDelay: 3 }
+                                                                    } : {}}
+                                                                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10 ${isActive ? 'bg-cyan-500 border-cyan-400 text-white scale-110 shadow-[0_0_15px_#22d3ee]' :
+                                                                        isCompleted ? 'bg-cyan-100 dark:bg-cyan-900/50 border-cyan-500 text-cyan-600 dark:text-cyan-400' :
+                                                                            'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-600'
+                                                                        }`}>
                                                                     <Icon size={14} />
-                                                                </div>
+                                                                </motion.div>
                                                                 <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-cyan-600 dark:text-cyan-400' :
                                                                     isCompleted ? 'text-gray-400 dark:text-gray-300' :
                                                                         'text-gray-400 dark:text-gray-600'
