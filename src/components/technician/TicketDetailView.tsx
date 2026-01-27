@@ -620,10 +620,12 @@ const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                         )}
                     </div>
 
-                    {/* NEW TECHNICIAN WORKFLOW INSIGHTS SECTION */}
-                    <div className="pt-6 border-t border-gray-800">
-                        <TechnicianWorkflowSection ticket={ticket} />
-                    </div>
+                    {/* NEW TECHNICIAN WORKFLOW INSIGHTS SECTION - ADMIN ONLY */}
+                    {isAdmin && (
+                        <div className="pt-6 border-t border-gray-800">
+                            <TechnicianWorkflowSection ticket={ticket} />
+                        </div>
+                    )}
 
                     {/* ADMIN AUDIT LOGS */}
                     {isAdmin && (
