@@ -13,6 +13,7 @@ import { MAP_TILE_URL, MAP_ATTRIBUTION } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import TechnicianWorkflowSection from '../admin/TechnicianWorkflowSection';
+import WorkReportCard from './WorkReportCard';
 import AdminTicketControls from '../admin/AdminTicketControls';
 import TicketAuditTimeline from '../admin/TicketAuditTimeline';
 import { useAuth } from '../../contexts/AuthContext';
@@ -619,6 +620,13 @@ const TicketDetailView: React.FC<TicketDetailViewProps> = ({
                             </div>
                         )}
                     </div>
+
+                    {/* WORK REPORT - VISIBLE TO EVERYONE (Already Read-Only) */}
+                    {!isAdmin && (ticket.status === 'COMPLETED' || ticket.parts_replaced) && (
+                        <div className="pt-6 border-t border-gray-800">
+                            <WorkReportCard ticket={ticket} />
+                        </div>
+                    )}
 
                     {/* NEW TECHNICIAN WORKFLOW INSIGHTS SECTION - ADMIN ONLY */}
                     {isAdmin && (
