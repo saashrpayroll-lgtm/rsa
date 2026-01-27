@@ -97,7 +97,7 @@ const AdminLogin: React.FC = () => {
                                 required
                             />
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs font-bold pointer-events-none select-none">
-                                +91
+
                             </div>
                         </div>
                     </div>
