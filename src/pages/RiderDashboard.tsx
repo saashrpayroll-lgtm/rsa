@@ -685,10 +685,12 @@ const RiderDashboard: React.FC = () => {
                 {/* Past History */}
                 <div className="space-y-4 pt-8 border-t border-gray-200 dark:border-gray-800">
                     <h3 className="text-lg font-bold text-gray-400 uppercase tracking-wider text-xs">Past History</h3>
-                    <TicketHistory
-                        tickets={tickets.filter(t => ['COMPLETED', 'CANCELLED'].includes(t.status))}
-                        onRate={handleRateClick}
-                    />
+                    <div className="max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                        <TicketHistory
+                            tickets={tickets.filter(t => ['COMPLETED', 'CANCELLED'].includes(t.status))}
+                            onRate={handleRateClick}
+                        />
+                    </div>
                 </div>
             </div>
 
