@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UserProfile, Ticket } from '../types';
 import { cn } from '../lib/utils';
+import { calculateDistance, parseLocation } from '../lib/maps';
 import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, FileText, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -164,59 +165,122 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
-    // --- CLIENT-SIDE AUTO-DISPATCHER (SIMULATION/FALLBACK) ---
+    // --- CLIENT-SIDE "AI" AUTO-DISPATCHER ---
     useEffect(() => {
         if (!systemSettings.auto_assign_enabled) return;
 
+        // The "Brain" Loop - Runs every 10 seconds checking for work
         const interval = setInterval(async () => {
-            // Find PENDING tickets
+            // 1. Identify Pending Work
             const pendingTickets = tickets.filter(t => t.status === 'PENDING');
             if (pendingTickets.length === 0) return;
 
-            // Find Available Techs
+            // 2. Identify Workforce
             const availableTechs = users.filter(u =>
                 (u.role === 'hub_tech' || u.role === 'rsa_tech') &&
-                u.is_available !== false // Default to true if undefined
+                u.is_available !== false // Default to available
             );
 
-            if (availableTechs.length === 0) return;
+            if (availableTechs.length === 0) {
+                addLog("⚠️ AI Alert: No technicians available for dispatch.");
+                return;
+            }
 
-            // Simple Round-Robin / Nearest Logic (Mock)
-            for (const ticket of pendingTickets) {
-                // Determine required role
+            // Process one ticket at a time to simulate "Focus"
+            const ticket = pendingTickets[0];
+
+            // "AI Processing" Delay (Visual only, per user request)
+            addLog(`🤖 AI analyzing Ticket #${ticket.id.slice(0, 4)}...`);
+
+            await new Promise(r => setTimeout(r, 3000)); // 3s Thinking time
+
+            // 3. Score Candidates
+            let bestTech = null;
+            let highestScore = -Infinity;
+            const logDetails: string[] = [];
+
+            const ticketLoc = parseLocation(ticket.location);
+
+            for (const tech of availableTechs) {
+                // A. Filter by Role/Skill
                 const requiredRole = ticket.type === 'RSA' ? 'rsa_tech' : 'hub_tech';
+                const isRoleMatch = tech.role === requiredRole;
 
-                // Filter techs by role (if routing enabled)
-                let candidateTechs = availableTechs;
-                if (systemSettings.rsa_routing_enabled && ticket.type === 'RSA') {
-                    candidateTechs = availableTechs.filter(t => t.role === 'rsa_tech');
-                } else if (systemSettings.hub_routing_enabled && ticket.type === 'RUNNING_REPAIR') {
-                    candidateTechs = availableTechs.filter(t => t.role === 'hub_tech');
+                // If specific routing is enabled, enforce role. Else, allow cross-assigment if desperate? 
+                // Strict adhering to user request "work according to these tickets Hub/RSA"
+                if (systemSettings.rsa_routing_enabled && ticket.type === 'RSA' && !isRoleMatch) continue;
+                if (systemSettings.hub_routing_enabled && ticket.type === 'RUNNING_REPAIR' && !isRoleMatch) continue;
+
+                // B. Calculate Score
+                let score = 0;
+
+                // B1. Workload (Who is free?)
+                const activeTechTickets = tickets.filter(t =>
+                    t.technician_id === tech.id &&
+                    ['ACCEPTED', 'ON_WAY', 'IN_PROGRESS'].includes(t.status)
+                );
+
+                if (activeTechTickets.length === 0) score += 50; // Huge bonus for completely free
+                else if (activeTechTickets.length === 1) score += 10; // Manageable
+                else score -= 30; // Overloaded
+
+                // B2. Proximity (Who is close?)
+                let dist = 999;
+                if (ticketLoc && tech.current_location) {
+                    dist = calculateDistance(ticketLoc, tech.current_location);
+                    if (dist < 5) score += 40; // < 5km
+                    else if (dist < 10) score += 20; // < 10km
+                    else score -= 10; // Too far
+                } else if (tech.hub_center && ticketLoc) {
+                    // Fallback to Hub Center if live location missing
+                    dist = calculateDistance(ticketLoc, tech.hub_center);
+                    if (dist < 5) score += 30;
                 }
 
-                if (candidateTechs.length > 0) {
-                    // Pick random for now (or nearest if we had coords)
-                    const tech = candidateTechs[Math.floor(Math.random() * candidateTechs.length)];
+                // B3. Momentum (Who is about to finish?)
+                // Heuristic: If they have a "COMPLETED" ticket in last 10 mins? 
+                // Hard to track without efficient TS queries, skipping for now.
+                // Instead check status of active ticket
+                if (activeTechTickets.length === 1) {
+                    const currentStatus = activeTechTickets[0].status;
+                    if (currentStatus === 'IN_PROGRESS') score += 5; // Might finish soon?
+                    if (currentStatus === 'ON_WAY') score -= 10; // Just started travelling
+                }
 
-                    // Assign
-                    try {
-                        const { error } = await supabase
-                            .from('tickets')
-                            .update({
-                                technician_id: tech.id,
-                                status: 'ACCEPTED'
-                            })
-                            .eq('id', ticket.id);
+                logDetails.push(`${tech.full_name?.split(' ')[0]}: ${score}pts (${dist.toFixed(1)}km, ${activeTechTickets.length} active)`);
 
-                        if (!error) {
-                            addLog(`🤖 Auto-Assigned Ticket #${ticket.id.slice(0, 4)} (${ticket.category}) to ${tech.full_name || 'Tech'} as ${requiredRole}`);
-                            fetchDashboardData(); // Refresh UI
-                        }
-                    } catch (err) {
-                        console.error("Auto-assign error", err);
-                    }
+                if (score > highestScore) {
+                    highestScore = score;
+                    bestTech = tech;
                 }
             }
+
+            // 4. Decision & Execution
+            if (bestTech) {
+                await new Promise(r => setTimeout(r, 2000)); // 2s Decision time
+
+                try {
+                    const { error } = await supabase
+                        .from('tickets')
+                        .update({
+                            technician_id: bestTech.id,
+                            status: 'ACCEPTED'
+                        })
+                        .eq('id', ticket.id);
+
+                    if (!error) {
+                        addLog(`✅ AI Assigned: ${bestTech.full_name} (Score: ${highestScore})`);
+                        // Optional: Log the candidates for transparency
+                        // addLog(`Candidate Analysis: ${logDetails.join(', ')}`);
+                        fetchDashboardData();
+                    }
+                } catch (err) {
+                    console.error("Auto-assign error", err);
+                }
+            } else {
+                addLog(`⚠️ AI: No suitable candidate found for Ticket #${ticket.id.slice(0, 4)}`);
+            }
+
         }, 10000); // Check every 10 seconds
 
         return () => clearInterval(interval);
