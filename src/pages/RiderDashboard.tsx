@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { useAuth } from '../contexts/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getCurrentLocation, calculateDistance, parseLocation } from '../lib/maps';
 import type { Coordinates } from '../lib/maps';
 import { MAP_TILE_URL, MAP_ATTRIBUTION, TICKET_CATEGORIES } from '../lib/constants';
@@ -359,6 +360,10 @@ const RiderDashboard: React.FC = () => {
             if (error) throw error;
 
             setFeedback('Ticket created successfully! Help is on the way.');
+
+            // IMMEDIATE UPDATE
+            fetchTickets();
+
             setShowForm(false);
             setDescription('');
             setAlternateMobile('');
@@ -504,146 +509,167 @@ const RiderDashboard: React.FC = () => {
 
                     {tickets.filter(t => ['PENDING', 'ACCEPTED', 'ON_WAY', 'IN_PROGRESS'].includes(t.status)).length > 0 ? (
                         <div className="grid gap-4">
-                            {tickets.filter(t => ['PENDING', 'ACCEPTED', 'ON_WAY', 'IN_PROGRESS'].includes(t.status)).map(ticket => {
-                                const currentStepIndex = STATUS_STEPS.findIndex(s => s.status === ticket.status);
-                                return (
-                                    <div key={ticket.id} className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-6 rounded-2xl border border-gray-200 dark:border-cyan-500/30 shadow-lg relative overflow-hidden transition-all group">
-                                        {/* Live Status Indicator */}
-                                        <div className="absolute top-0 right-0 p-2 bg-cyan-100 dark:bg-cyan-950/80 rounded-bl-2xl border-b border-l border-cyan-200 dark:border-cyan-500/30 shadow-xl backdrop-blur-md z-10">
-                                            <span className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 font-bold text-xs uppercase tracking-wider">
-                                                <div className="w-2 h-2 bg-cyan-500 dark:bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]" />
-                                                Live Updates
-                                            </span>
-                                        </div>
-
-                                        {/* Navigation to Hub (If Type is Repair and Hub exists) */}
-                                        {ticket.type === 'RUNNING_REPAIR' && nearestHub && (
-                                            <a
-                                                href={`https://www.google.com/maps/dir/?api=1&destination=${nearestHub?.latitude},${nearestHub?.longitude}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="absolute top-0 left-0 p-2 pb-3 pr-3 bg-blue-900/80 rounded-br-2xl border-b border-r border-blue-500/30 text-xs text-blue-200 hover:text-white font-bold flex items-center gap-1 z-10 hover:pr-4 transition-all"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <Navigation size={12} /> {t('rider.directions')}
-                                            </a>
-                                        )}
-
-                                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-600 shrink-0">
-                                            {ticket.type === 'RSA' ? <Truck className="text-red-500 dark:text-red-400" /> : <Wrench className="text-blue-500 dark:text-blue-400" />}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <h4 className="font-bold text-gray-900 dark:text-white text-lg mb-1 truncate">{ticket.category}</h4>
-                                            <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2">{ticket.description}</p>
-                                            {parseLocation(ticket.location) && (
-                                                <p className="text-xs text-gray-500 dark:text-gray-500 font-mono mt-1 flex items-center gap-1">
-                                                    <Navigation size={10} />
-                                                    {parseLocation(ticket.location)?.lat.toFixed(4)}, {parseLocation(ticket.location)?.lng.toFixed(4)}
-                                                </p>
-                                            )}
-                                        </div>
-
-
-                                        {/* Workflow Progress Bar */}
-                                        <div className="mb-6 relative">
-                                            <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-700 -translate-y-1/2 rounded-full" />
-                                            <div
-                                                className="absolute top-1/2 left-0 h-1 bg-cyan-500 -translate-y-1/2 rounded-full transition-all duration-500"
-                                                style={{ width: `${(Math.max(0, currentStepIndex) / (STATUS_STEPS.length - 1)) * 100}%` }}
-                                            />
-                                            <div className="relative flex justify-between">
-                                                {STATUS_STEPS.map((step, idx) => {
-                                                    const isCompleted = idx <= currentStepIndex;
-                                                    const isActive = idx === currentStepIndex;
-                                                    const Icon = step.icon;
-                                                    return (
-                                                        <div key={step.status} className="flex flex-col items-center gap-2">
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10 ${isActive ? 'bg-cyan-500 border-cyan-400 text-white scale-110 shadow-[0_0_15px_#22d3ee]' :
-                                                                isCompleted ? 'bg-cyan-100 dark:bg-cyan-900/50 border-cyan-500 text-cyan-600 dark:text-cyan-400' :
-                                                                    'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-600'
-                                                                }`}>
-                                                                <Icon size={14} />
-                                                            </div>
-                                                            <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-cyan-600 dark:text-cyan-400' :
-                                                                isCompleted ? 'text-gray-400 dark:text-gray-300' :
-                                                                    'text-gray-400 dark:text-gray-600'
-                                                                }`}>
-                                                                {step.label}
-                                                            </span>
-                                                        </div>
-                                                    );
-                                                })}
+                            <AnimatePresence mode="popLayout">
+                                {tickets.filter(t => ['PENDING', 'ACCEPTED', 'ON_WAY', 'IN_PROGRESS'].includes(t.status)).map(ticket => {
+                                    const currentStepIndex = STATUS_STEPS.findIndex(s => s.status === ticket.status);
+                                    return (
+                                        <motion.div
+                                            key={ticket.id}
+                                            layout
+                                            initial={{ opacity: 0, scale: 0.9, x: -20 }}
+                                            animate={{
+                                                opacity: 1,
+                                                scale: 1,
+                                                x: 0,
+                                                // EARTHQUAKE ANIMATION for active tickets or updates
+                                                rotate: [0, -1, 1, -1, 1, 0],
+                                                transition: {
+                                                    type: "spring",
+                                                    stiffness: 300,
+                                                    damping: 20
+                                                }
+                                            }}
+                                            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                                            whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+                                            className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-6 rounded-2xl border border-gray-200 dark:border-cyan-500/30 shadow-lg relative overflow-hidden transition-all group"
+                                        >
+                                            {/* Live Status Indicator */}
+                                            <div className="absolute top-0 right-0 p-2 bg-cyan-100 dark:bg-cyan-950/80 rounded-bl-2xl border-b border-l border-cyan-200 dark:border-cyan-500/30 shadow-xl backdrop-blur-md z-10">
+                                                <span className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                                                    <div className="w-2 h-2 bg-cyan-500 dark:bg-cyan-400 rounded-full animate-pulse shadow-[0_0_10px_#22d3ee]" />
+                                                    Live Updates
+                                                </span>
                                             </div>
-                                        </div>
 
-                                        {/* My Profile Info on Ticket */}
-                                        {
-                                            (myMasterData || ticket.rider_snapshot) && (
-                                                <div className="mb-4 bg-gray-900/80 p-3 rounded-lg border border-gray-700/50 flex items-center justify-between shadow-inner">
-                                                    <div>
-                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Rider Data</p>
-                                                        <p className="text-sm font-bold text-white">
-                                                            {myMasterData?.full_name || ticket.rider_snapshot?.full_name}
-                                                        </p>
-                                                        <p className="text-xs text-gray-400 font-mono">
-                                                            {myMasterData?.chassis_number || ticket.rider_snapshot?.chassis_number}
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-[10px] text-gray-500 uppercase mb-1">Wallet</p>
-                                                        <p className={cn("font-bold font-mono", (myMasterData?.wallet_balance || 0) < 0 ? "text-red-400" : "text-green-400")}>
-                                                            ₹{myMasterData?.wallet_balance ?? ticket.rider_snapshot?.wallet_balance ?? '0'}
-                                                        </p>
-                                                    </div>
+                                            {/* Navigation to Hub (If Type is Repair and Hub exists) */}
+                                            {ticket.type === 'RUNNING_REPAIR' && nearestHub && (
+                                                <a
+                                                    href={`https://www.google.com/maps/dir/?api=1&destination=${nearestHub?.latitude},${nearestHub?.longitude}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="absolute top-0 left-0 p-2 pb-3 pr-3 bg-blue-900/80 rounded-br-2xl border-b border-r border-blue-500/30 text-xs text-blue-200 hover:text-white font-bold flex items-center gap-1 z-10 hover:pr-4 transition-all"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Navigation size={12} /> {t('rider.directions')}
+                                                </a>
+                                            )}
+
+                                            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-600 shrink-0">
+                                                {ticket.type === 'RSA' ? <Truck className="text-red-500 dark:text-red-400" /> : <Wrench className="text-blue-500 dark:text-blue-400" />}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-bold text-gray-900 dark:text-white text-lg mb-1 truncate">{ticket.category}</h4>
+                                                <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2">{ticket.description}</p>
+                                                {parseLocation(ticket.location) && (
+                                                    <p className="text-xs text-gray-500 dark:text-gray-500 font-mono mt-1 flex items-center gap-1">
+                                                        <Navigation size={10} />
+                                                        {parseLocation(ticket.location)?.lat.toFixed(4)}, {parseLocation(ticket.location)?.lng.toFixed(4)}
+                                                    </p>
+                                                )}
+                                            </div>
+
+
+                                            {/* Workflow Progress Bar */}
+                                            <div className="mb-6 relative">
+                                                <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-700 -translate-y-1/2 rounded-full" />
+                                                <div
+                                                    className="absolute top-1/2 left-0 h-1 bg-cyan-500 -translate-y-1/2 rounded-full transition-all duration-500"
+                                                    style={{ width: `${(Math.max(0, currentStepIndex) / (STATUS_STEPS.length - 1)) * 100}%` }}
+                                                />
+                                                <div className="relative flex justify-between">
+                                                    {STATUS_STEPS.map((step, idx) => {
+                                                        const isCompleted = idx <= currentStepIndex;
+                                                        const isActive = idx === currentStepIndex;
+                                                        const Icon = step.icon;
+                                                        return (
+                                                            <div key={step.status} className="flex flex-col items-center gap-2">
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10 ${isActive ? 'bg-cyan-500 border-cyan-400 text-white scale-110 shadow-[0_0_15px_#22d3ee]' :
+                                                                    isCompleted ? 'bg-cyan-100 dark:bg-cyan-900/50 border-cyan-500 text-cyan-600 dark:text-cyan-400' :
+                                                                        'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-600'
+                                                                    }`}>
+                                                                    <Icon size={14} />
+                                                                </div>
+                                                                <span className={`text-[10px] font-medium transition-colors ${isActive ? 'text-cyan-600 dark:text-cyan-400' :
+                                                                    isCompleted ? 'text-gray-400 dark:text-gray-300' :
+                                                                        'text-gray-400 dark:text-gray-600'
+                                                                    }`}>
+                                                                    {step.label}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            )
-                                        }
+                                            </div>
 
-                                        {
-                                            ticket.technician ? (
-                                                <div className="mt-4 p-4 bg-gray-50 dark:bg-black/40 rounded-xl flex items-center justify-between border border-gray-200 dark:border-white/5">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center text-2xl border border-gray-300 dark:border-gray-700">
-                                                            👷
-                                                        </div>
+                                            {/* My Profile Info on Ticket */}
+                                            {
+                                                (myMasterData || ticket.rider_snapshot) && (
+                                                    <div className="mb-4 bg-gray-900/80 p-3 rounded-lg border border-gray-700/50 flex items-center justify-between shadow-inner">
                                                         <div>
-                                                            <p className="text-sm font-bold text-gray-900 dark:text-white">{ticket.technician?.full_name}</p>
-                                                            <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium tracking-wide uppercase">{t('rider.technician_assigned')}</p>
+                                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Rider Data</p>
+                                                            <p className="text-sm font-bold text-white">
+                                                                {myMasterData?.full_name || ticket.rider_snapshot?.full_name}
+                                                            </p>
+                                                            <p className="text-xs text-gray-400 font-mono">
+                                                                {myMasterData?.chassis_number || ticket.rider_snapshot?.chassis_number}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-[10px] text-gray-500 uppercase mb-1">Wallet</p>
+                                                            <p className={cn("font-bold font-mono", (myMasterData?.wallet_balance || 0) < 0 ? "text-red-400" : "text-green-400")}>
+                                                                ₹{myMasterData?.wallet_balance ?? ticket.rider_snapshot?.wallet_balance ?? '0'}
+                                                            </p>
                                                         </div>
                                                     </div>
+                                                )
+                                            }
 
-                                                    {!['COMPLETED', 'CANCELLED', 'CLOSED'].includes(ticket.status) && (
-                                                        <div className="flex gap-2">
-                                                            <a
-                                                                href={`tel:${ticket.technician?.mobile}`}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                className="bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl transition-colors shadow-lg shadow-green-900/20 flex items-center justify-center"
-                                                                title="Call Technician"
-                                                            >
-                                                                <Phone size={20} />
-                                                            </a>
-                                                            <a
-                                                                href={`https://wa.me/${ticket.technician?.mobile}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                className="bg-[#25D366] hover:bg-[#20bd5a] text-white p-3 rounded-xl transition-colors shadow-lg shadow-green-900/20 flex items-center justify-center"
-                                                                title="WhatsApp Technician"
-                                                            >
-                                                                <MessageCircle size={20} />
-                                                            </a>
+                                            {
+                                                ticket.technician ? (
+                                                    <div className="mt-4 p-4 bg-gray-50 dark:bg-black/40 rounded-xl flex items-center justify-between border border-gray-200 dark:border-white/5">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center text-2xl border border-gray-300 dark:border-gray-700">
+                                                                👷
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{ticket.technician?.full_name}</p>
+                                                                <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium tracking-wide uppercase">{t('rider.technician_assigned')}</p>
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="mt-4 flex items-center gap-2 text-xs text-yellow-500 font-medium bg-yellow-500/10 p-2 rounded-lg border border-yellow-500/20 w-fit">
-                                                    <Loader2 size={14} className="animate-spin" /> {t('rider.looking_for_tech')}
-                                                </div>
-                                            )
-                                        }
-                                    </div>
-                                )
-                            })}
+
+                                                        {!['COMPLETED', 'CANCELLED', 'CLOSED'].includes(ticket.status) && (
+                                                            <div className="flex gap-2">
+                                                                <a
+                                                                    href={`tel:${ticket.technician?.mobile}`}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="bg-green-600 hover:bg-green-500 text-white p-3 rounded-xl transition-colors shadow-lg shadow-green-900/20 flex items-center justify-center"
+                                                                    title="Call Technician"
+                                                                >
+                                                                    <Phone size={20} />
+                                                                </a>
+                                                                <a
+                                                                    href={`https://wa.me/${ticket.technician?.mobile}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="bg-[#25D366] hover:bg-[#20bd5a] text-white p-3 rounded-xl transition-colors shadow-lg shadow-green-900/20 flex items-center justify-center"
+                                                                    title="WhatsApp Technician"
+                                                                >
+                                                                    <MessageCircle size={20} />
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="mt-4 flex items-center gap-2 text-xs text-yellow-500 font-medium bg-yellow-500/10 p-2 rounded-lg border border-yellow-500/20 w-fit">
+                                                        <Loader2 size={14} className="animate-spin" /> {t('rider.looking_for_tech')}
+                                                    </div>
+                                                )
+                                            }
+                                        </motion.div>
+                                    )
+                                })}
+                            </AnimatePresence>
                         </div>
                     ) : (
                         <div className="text-gray-500 dark:text-gray-500 text-sm italic p-8 bg-white/50 dark:bg-gray-900/50 rounded-2xl text-center border border-dashed border-gray-300 dark:border-gray-800">
