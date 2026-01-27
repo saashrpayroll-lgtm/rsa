@@ -24,7 +24,4 @@ BEFORE INSERT ON public.tickets
 FOR EACH ROW
 EXECUTE FUNCTION public.trigger_auto_assign(); -- We assume this is the latest one
 
-DO $$
-BEGIN
-    RAISE NOTICE 'Duplicate triggers have been exterminated. You are safe.';
-END $$;
+
