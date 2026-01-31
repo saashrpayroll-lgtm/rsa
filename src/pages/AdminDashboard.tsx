@@ -495,17 +495,17 @@ const AdminDashboard: React.FC = () => {
                         </div>
 
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                                <div>
+                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                                <div className="mb-2">
                                     <p className="text-gray-900 dark:text-white font-medium text-sm">AI Assignment Mode</p>
                                     <p className="text-xs text-gray-500">Logic Level</p>
                                 </div>
-                                <div className="flex bg-gray-200 dark:bg-gray-800 rounded-lg p-1 text-[10px] font-bold gap-1">
+                                <div className="flex bg-gray-200 dark:bg-gray-800 rounded-lg p-1 text-[10px] font-bold gap-1 w-full">
                                     {(['MANUAL', 'HYBRID', 'AUTO'] as const).map(mode => (
                                         <button
                                             key={mode}
                                             onClick={() => updateMode(mode)}
-                                            className={cn("px-2 py-1.5 rounded transition-all", systemSettings.assignment_mode === mode ? "bg-white dark:bg-gray-600 text-black dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}
+                                            className={cn("flex-1 py-1.5 rounded transition-all text-center", systemSettings.assignment_mode === mode ? "bg-white dark:bg-gray-600 text-black dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}
                                         >
                                             {mode}
                                         </button>
