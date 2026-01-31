@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { UserProfile, Ticket } from '../types';
+import type { UserProfile, Ticket, Hub } from '../types';
 import { cn } from '../lib/utils';
 import { calculateDistance, parseLocation } from '../lib/maps';
 import { Users, CheckCircle, Shield, Radio, XCircle, UserCheck, Clock, Activity, Zap, FileText, TrendingUp } from 'lucide-react';
@@ -47,16 +47,24 @@ const UserRow: React.FC<{ user: UserProfile }> = ({ user }) => (
 const AdminDashboard: React.FC = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [tickets, setTickets] = useState<Ticket[]>([]);
+    const [hubs, setHubs] = useState<Hub[]>([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
     const { t } = useLanguage();
 
     // Dispatch State
-    const [systemSettings, setSystemSettings] = useState({
+    const [systemSettings, setSystemSettings] = useState<{
+        id: string;
+        auto_assign_enabled: boolean;
+        rsa_routing_enabled: boolean;
+        hub_routing_enabled: boolean;
+        assignment_mode: 'AUTO' | 'MANUAL' | 'HYBRID';
+    }>({
         id: '',
         auto_assign_enabled: true,
         rsa_routing_enabled: true,
-        hub_routing_enabled: true
+        hub_routing_enabled: true,
+        assignment_mode: 'AUTO'
     });
     const [dispatchLogs, setDispatchLogs] = useState<string[]>([]);
     const [isRealtime, setIsRealtime] = useState(false);
@@ -98,16 +106,19 @@ const AdminDashboard: React.FC = () => {
         setLoading(true);
         try {
             // 1. Fetch Users & Tickets
-            const [usersResponse, ticketsResponse] = await Promise.all([
+            const [usersResponse, ticketsResponse, hubsResponse] = await Promise.all([
                 supabase.from('profiles').select('*'),
-                supabase.from('tickets').select('*')
+                supabase.from('tickets').select('*'),
+                supabase.from('hubs').select('*').eq('status', 'ACTIVE')
             ]);
 
             if (usersResponse.error) throw usersResponse.error;
             if (ticketsResponse.error) throw ticketsResponse.error;
+            if (hubsResponse.error) throw hubsResponse.error;
 
             setUsers(usersResponse.data as UserProfile[]);
             setTickets(ticketsResponse.data as Ticket[]);
+            setHubs(hubsResponse.data as Hub[]);
 
             // 2. Fetch Settings
             const { data: settingsData, error: settingsError } = await supabase.from('system_settings').select('*').limit(1).single();
@@ -119,7 +130,8 @@ const AdminDashboard: React.FC = () => {
                 const defaultSettings = {
                     auto_assign_enabled: true,
                     rsa_routing_enabled: true,
-                    hub_routing_enabled: true
+                    hub_routing_enabled: true,
+                    assignment_mode: 'AUTO'
                 };
                 const { data: newData } = await supabase.from('system_settings').insert([defaultSettings]).select().single();
                 if (newData) setSystemSettings(newData);
@@ -167,7 +179,7 @@ const AdminDashboard: React.FC = () => {
 
     // --- CLIENT-SIDE "AI" AUTO-DISPATCHER ---
     useEffect(() => {
-        if (!systemSettings.auto_assign_enabled) return;
+        if (!systemSettings.auto_assign_enabled && systemSettings.assignment_mode === 'MANUAL') return;
 
         // The "Brain" Loop - Runs every 10 seconds checking for work
         const interval = setInterval(async () => {
@@ -188,28 +200,59 @@ const AdminDashboard: React.FC = () => {
 
             // Process one ticket at a time to simulate "Focus"
             const ticket = pendingTickets[0];
+            const ticketLoc = parseLocation(ticket.location);
 
-            // "AI Processing" Delay (Visual only, per user request)
-            addLog(`🤖 AI analyzing Ticket #${ticket.id.slice(0, 4)}...`);
+            // "AI Processing" Delay (Visual only)
+            addLog(`🤖 AI analyzing Ticket #${ticket.id.slice(0, 4)} from ${ticketLoc ? `${ticketLoc.lat.toFixed(2)}, ${ticketLoc.lng.toFixed(2)}` : 'Unknown Loc'}...`);
 
-            await new Promise(r => setTimeout(r, 3000)); // 3s Thinking time
+            await new Promise(r => setTimeout(r, 2000)); // 2s Thinking time
 
-            // 3. Score Candidates
+            // 3. GEO-FENCE & HUB MAPPING
+            let nearestHub: Hub | null = null;
+            let insideGeoFence = false;
+
+            if (ticketLoc) {
+                for (const hub of hubs) {
+                    const dist = calculateDistance(ticketLoc, { lat: hub.latitude, lng: hub.longitude });
+                    if (dist <= hub.hub_radius) {
+                        nearestHub = hub;
+                        insideGeoFence = true;
+                        break; // Found the zone
+                    } else {
+                        // Keep track of closest hub just in case
+                        if (!nearestHub || dist < calculateDistance(ticketLoc, { lat: nearestHub.latitude, lng: nearestHub.longitude })) {
+                            nearestHub = hub;
+                        }
+                    }
+                }
+            }
+
+            // DECISION MODE: HARD MODE vs NORMAL
+            let candidatePool = availableTechs;
+            let logPrefix = "✅ AI Assigned";
+
+            if (!insideGeoFence) {
+                addLog(`⚡ HARD MODE: Ticket outside all Geo-Fences. Closest Hub: ${nearestHub?.name}. Expanding search...`);
+                // HARD MODE: Candidates are ALL techs, scored heavily by distance from Ticket and Workload
+                // We expand search radius effectively to finding *any* suitable match
+            } else {
+                addLog(`📍 Geo-Fence Match: ${nearestHub?.name}. Filtering Hub Technicians...`);
+                // Filter only relevant techs if strict routing is on
+                // For now, we prefer techs "near" the hub or assigned to it
+            }
+
+
+            // 4. Score Candidates
             let bestTech = null;
             let highestScore = -Infinity;
             const logDetails: string[] = [];
 
-            const ticketLoc = parseLocation(ticket.location);
-
-            for (const tech of availableTechs) {
-                // A. Filter by Role/Skill
+            for (const tech of candidatePool) {
+                // A. Filter by Role/Skill if strict
                 const requiredRole = ticket.type === 'RSA' ? 'rsa_tech' : 'hub_tech';
                 const isRoleMatch = tech.role === requiredRole;
 
-                // If specific routing is enabled, enforce role. Else, allow cross-assigment if desperate? 
-                // Strict adhering to user request "work according to these tickets Hub/RSA"
                 if (systemSettings.rsa_routing_enabled && ticket.type === 'RSA' && !isRoleMatch) continue;
-                if (systemSettings.hub_routing_enabled && ticket.type === 'RUNNING_REPAIR' && !isRoleMatch) continue;
 
                 // B. Calculate Score
                 let score = 0;
@@ -221,33 +264,30 @@ const AdminDashboard: React.FC = () => {
                 );
 
                 if (activeTechTickets.length === 0) score += 50; // Huge bonus for completely free
-                else if (activeTechTickets.length === 1) score += 10; // Manageable
-                else score -= 30; // Overloaded
+                else if (activeTechTickets.length < 3) score += (20 - (activeTechTickets.length * 5)); // Manageable
+                else score -= 50; // Overloaded
 
                 // B2. Proximity (Who is close?)
                 let dist = 999;
                 if (ticketLoc && tech.current_location) {
                     dist = calculateDistance(ticketLoc, tech.current_location);
-                    if (dist < 5) score += 40; // < 5km
-                    else if (dist < 10) score += 20; // < 10km
-                    else score -= 10; // Too far
+                    // HARD MODE: Distance punishment is linear but cap is high
+                    if (dist < 5) score += 40;
+                    else if (dist < 15) score += 20;
+                    else if (dist < 50) score += 0;
+                    else score -= (dist - 50); // Penalty for very far
                 } else if (tech.hub_center && ticketLoc) {
-                    // Fallback to Hub Center if live location missing
+                    // Fallback to Hub Center
                     dist = calculateDistance(ticketLoc, tech.hub_center);
-                    if (dist < 5) score += 30;
+                    if (dist < 10) score += 30;
                 }
 
-                // B3. Momentum (Who is about to finish?)
-                // Heuristic: If they have a "COMPLETED" ticket in last 10 mins? 
-                // Hard to track without efficient TS queries, skipping for now.
-                // Instead check status of active ticket
-                if (activeTechTickets.length === 1) {
-                    const currentStatus = activeTechTickets[0].status;
-                    if (currentStatus === 'IN_PROGRESS') score += 5; // Might finish soon?
-                    if (currentStatus === 'ON_WAY') score -= 10; // Just started travelling
+                // AI HARD MODE OVERRIDE: If outside geo-fence, prioritize distance above all else
+                if (!insideGeoFence) {
+                    if (dist < 20) score += 50; // Super bonus for being the "closest" in a remote area
                 }
 
-                logDetails.push(`${tech.full_name?.split(' ')[0]}: ${score}pts (${dist.toFixed(1)}km, ${activeTechTickets.length} active)`);
+                logDetails.push(`${tech.full_name?.split(' ')[0]}: ${Math.round(score)}pts`);
 
                 if (score > highestScore) {
                     highestScore = score;
@@ -255,36 +295,46 @@ const AdminDashboard: React.FC = () => {
                 }
             }
 
-            // 4. Decision & Execution
+            // 5. Decision & Execution based on MODE
             if (bestTech) {
-                await new Promise(r => setTimeout(r, 2000)); // 2s Decision time
+                const isHybrid = systemSettings.assignment_mode === 'HYBRID';
+                const isAuto = systemSettings.assignment_mode === 'AUTO';
 
-                try {
-                    const { error } = await supabase
-                        .from('tickets')
-                        .update({
-                            technician_id: bestTech.id,
-                            status: 'ACCEPTED'
-                        })
-                        .eq('id', ticket.id);
+                // If simple bool is on, treat as AUTO unless mode says otherwise (Backward compatibility)
+                const shouldAssign = (systemSettings.auto_assign_enabled && (isAuto || !systemSettings.assignment_mode))
+                    || (systemSettings.assignment_mode === 'AUTO');
 
-                    if (!error) {
-                        addLog(`✅ AI Assigned: ${bestTech.full_name} (Score: ${highestScore})`);
-                        // Optional: Log the candidates for transparency
-                        // addLog(`Candidate Analysis: ${logDetails.join(', ')}`);
-                        fetchDashboardData();
+                if (shouldAssign) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    try {
+                        const { error } = await supabase
+                            .from('tickets')
+                            .update({
+                                technician_id: bestTech.id,
+                                status: 'ACCEPTED'
+                            })
+                            .eq('id', ticket.id);
+
+                        if (!error) {
+                            addLog(`${logPrefix}: ${bestTech.full_name} (Score: ${Math.round(highestScore)})`);
+                            fetchDashboardData();
+                        }
+                    } catch (err) {
+                        console.error("Auto-assign error", err);
                     }
-                } catch (err) {
-                    console.error("Auto-assign error", err);
+                } else if (isHybrid) {
+                    addLog(`💡 AI Recommendation: Assign ${bestTech.full_name} (Score: ${Math.round(highestScore)}). Waiting for approval.`);
+                    // In a real app, we'd enable a "Approve" button next to the ticket. 
+                    // For now, we just log it. 
                 }
             } else {
-                addLog(`⚠️ AI: No suitable candidate found for Ticket #${ticket.id.slice(0, 4)}`);
+                addLog(`⚠️ AI (Hard Mode): No suitable candidate found for Ticket #${ticket.id.slice(0, 4)}`);
             }
 
         }, 10000); // Check every 10 seconds
 
         return () => clearInterval(interval);
-    }, [tickets, users, systemSettings]);
+    }, [tickets, users, systemSettings, hubs]);
 
     const addLog = (msg: string) => {
         setDispatchLogs(prev => [msg, ...prev].slice(0, 50));
@@ -324,6 +374,28 @@ const AdminDashboard: React.FC = () => {
             // Revert on error
             setSystemSettings(prev => ({ ...prev, [key]: !newValue }));
             addLog(`❌ Failed to update ${key}`);
+        }
+    };
+
+    const updateMode = async (mode: 'AUTO' | 'MANUAL' | 'HYBRID') => {
+        const oldMode = systemSettings.assignment_mode;
+        setSystemSettings(prev => ({ ...prev, assignment_mode: mode }));
+
+        try {
+            // Ensure ID exists
+            let rowId = systemSettings.id;
+            if (!rowId) {
+                const { data } = await supabase.from('system_settings').select('id').limit(1).single();
+                if (data) rowId = data.id;
+            }
+
+            if (rowId) {
+                await supabase.from('system_settings').update({ assignment_mode: mode }).eq('id', rowId);
+                addLog(`🧠 AI Mode Switched: ${mode}`);
+            }
+        } catch (error) {
+            console.error('Error updating mode:', error);
+            setSystemSettings(prev => ({ ...prev, assignment_mode: oldMode }));
         }
     };
 
@@ -425,8 +497,26 @@ const AdminDashboard: React.FC = () => {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
                                 <div>
-                                    <p className="text-gray-900 dark:text-white font-medium text-sm">Auto-Assign</p>
-                                    <p className="text-xs text-gray-500">Global System Toggle</p>
+                                    <p className="text-gray-900 dark:text-white font-medium text-sm">AI Assignment Mode</p>
+                                    <p className="text-xs text-gray-500">Logic Level</p>
+                                </div>
+                                <div className="flex bg-gray-200 dark:bg-gray-800 rounded-lg p-1 text-[10px] font-bold gap-1">
+                                    {(['MANUAL', 'HYBRID', 'AUTO'] as const).map(mode => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => updateMode(mode)}
+                                            className={cn("px-2 py-1.5 rounded transition-all", systemSettings.assignment_mode === mode ? "bg-white dark:bg-gray-600 text-black dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}
+                                        >
+                                            {mode}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                                <div>
+                                    <p className="text-gray-900 dark:text-white font-medium text-sm">Force Auto-Assign</p>
+                                    <p className="text-xs text-gray-500">Master Toggle</p>
                                 </div>
                                 <button
                                     onClick={() => toggleSetting('auto_assign_enabled')}

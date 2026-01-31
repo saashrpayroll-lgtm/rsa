@@ -28,6 +28,7 @@ export interface SystemSettings {
     auto_assign_enabled: boolean;
     rsa_routing_enabled: boolean;
     hub_routing_enabled: boolean;
+    assignment_mode: 'AUTO' | 'MANUAL' | 'HYBRID';
     updated_at: string;
 }
 
@@ -108,4 +109,17 @@ export interface Notification {
     reference_id?: string;
     is_read: boolean;
     created_at: string;
+}
+
+export interface Hub {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    address: string;
+    status: 'ACTIVE' | 'INACTIVE';
+    gps_device_id: string;
+    hub_radius: number;
+    rsa_radius: number;
+    ai_location_score?: number;
 }

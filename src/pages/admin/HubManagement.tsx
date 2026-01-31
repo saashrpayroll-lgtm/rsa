@@ -20,18 +20,9 @@ L.Icon.Default.mergeOptions({
 // ------------------------
 
 // --- TYPES ---
-interface Hub {
-    id: string;
-    name: string;
-    latitude: number;
-    longitude: number;
-    address: string;
-    status: 'ACTIVE' | 'INACTIVE';
-    gps_device_id: string;
-    hub_radius: number;
-    rsa_radius: number;
-    ai_location_score?: number;
-}
+import type { Hub } from '../../types';
+
+// --- COMPONENTS ---
 
 // --- COMPONENTS ---
 
